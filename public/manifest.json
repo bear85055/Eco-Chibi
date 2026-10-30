@@ -1,0 +1,16 @@
+{
+  "name": "Eco Chibi – Khu vườn sống xanh",
+  "short_name": "Eco Chibi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8f7ee",
+  "theme_color": "#3dbf74",
+  "icons": [
+    {
+      "src": "/assets/chibi/lv2.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
