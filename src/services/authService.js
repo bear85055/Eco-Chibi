@@ -77,32 +77,43 @@ export async function dangKyHocSinh({ ho_ten, lop, pin }) {
   const email = `${ma.toLowerCase()}@ecochibi.local`
   const password = `eco-${cleanPin}`
 
+  const parts = ho_ten.trim().split(/\s+/)
+  const tenHienThi = parts.length < 2 ? ho_ten.trim() : `${parts.slice(1).join(' ')} ${parts[0][0]}.`
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        ma_dang_nhap: ma,
+        ho_ten: ho_ten.trim(),
+        ten_hien_thi: tenHienThi,
+        lop: cleanLop,
+      },
+    },
   })
 
   if (authError) {
     throw new Error(authError.message || 'Không thể tạo tài khoản mới.')
   }
 
-  const parts = ho_ten.trim().split(/\s+/)
-  const tenHienThi = parts.length < 2 ? ho_ten : `${parts.slice(1).join(' ')} ${parts[0][0]}.`
-
   const { data: profile, error: insertError } = await supabase
     .from('users')
-    .insert([
-      {
-        id: authData.user.id,
-        ma_dang_nhap: ma,
-        ho_ten: ho_ten.trim(),
-        ten_hien_thi: tenHienThi,
-        lop: cleanLop,
-        vai_tro: 'student',
-        diem_hien_co: 50, // Quà tân thủ
-        tong_diem_tich_luy: 0,
-      },
-    ])
+    .upsert(
+      [
+        {
+          id: authData.user.id,
+          ma_dang_nhap: ma,
+          ho_ten: ho_ten.trim(),
+          ten_hien_thi: tenHienThi,
+          lop: cleanLop,
+          vai_tro: 'student',
+          diem_hien_co: 50,
+          tong_diem_tich_luy: 0,
+        },
+      ],
+      { onConflict: 'id' },
+    )
     .select()
     .single()
 
@@ -125,16 +136,24 @@ export async function layThongTinToi() {
     return mock.layThongTinToi()
   }
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.user) return null
+  const { data: { user: authUser }, error } = await supabase.auth.getUser()
+  if (error || !authUser) return null
 
   const { data: profile } = await supabase
     .from('users')
     .select('*')
-    .eq('id', session.user.id)
+    .eq('id', authUser.id)
     .single()
 
   return profile ? formatUser(profile) : null
+}
+
+export function onAuthChange(callback) {
+  if (!supabase) return () => {}
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(event, session)
+  })
+  return () => subscription.unsubscribe()
 }
 
 export const resetDemoData = mock.resetDemoData

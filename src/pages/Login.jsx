@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import { dangKyHocSinh } from '../services/authService'
 import Modal from '../components/Modal'
@@ -11,6 +11,8 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok']
 export default function Login() {
   const { user, login, setUser } = usePlayer()
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromPath = location.state?.from?.pathname
 
   const [tab, setTab] = useState('student') // student | teacher | register
   const [ma, setMa] = useState('')
@@ -42,9 +44,11 @@ export default function Login() {
     try {
       const u = await login(ma, p)
       if (u.vai_tro === 'teacher' || u.vai_tro === 'admin') {
-        navigate('/giao-vien', { replace: true })
+        const dest = fromPath?.startsWith('/giao-vien') ? fromPath : '/giao-vien'
+        navigate(dest, { replace: true })
       } else {
-        navigate('/', { replace: true })
+        const dest = fromPath && !fromPath.startsWith('/giao-vien') && fromPath !== '/dang-nhap' ? fromPath : '/'
+        navigate(dest, { replace: true })
       }
     } catch (e) {
       fail(e.message)

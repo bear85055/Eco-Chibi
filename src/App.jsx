@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { PlayerProvider, usePlayer } from './context/PlayerContext'
 import { ToastProvider } from './context/ToastContext'
 import HeaderBar from './components/HeaderBar'
@@ -45,6 +45,7 @@ function BackgroundDecor() {
 
 function RequireAuth() {
   const { user, loading } = usePlayer()
+  const location = useLocation()
   if (loading) {
     return (
       <div className="screen-center" style={{ minHeight: '100dvh' }}>
@@ -52,12 +53,13 @@ function RequireAuth() {
       </div>
     )
   }
-  if (!user) return <Navigate to="/dang-nhap" replace />
+  if (!user) return <Navigate to="/dang-nhap" state={{ from: location }} replace />
   return <Outlet />
 }
 
 function RequireStaff() {
   const { user, loading } = usePlayer()
+  const location = useLocation()
   if (loading) {
     return (
       <div className="screen-center" style={{ minHeight: '100dvh' }}>
@@ -65,7 +67,7 @@ function RequireStaff() {
       </div>
     )
   }
-  if (!user) return <Navigate to="/dang-nhap" replace />
+  if (!user) return <Navigate to="/dang-nhap" state={{ from: location }} replace />
   if (user.vai_tro !== 'teacher' && user.vai_tro !== 'admin') {
     return <Navigate to="/" replace />
   }

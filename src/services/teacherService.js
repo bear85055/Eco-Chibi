@@ -229,53 +229,21 @@ export async function themHocSinhThuCong({ ho_ten, lop, pin = '1234' }) {
     return mock.themHocSinhThuCong({ ho_ten, lop, pin })
   }
 
-  const staff = await layThongTinToi()
   const cleanLop = (lop || '').trim().toUpperCase().replace(/\s/g, '')
-  if (staff?.vai_tro === 'teacher' && cleanLop !== staff.lop) {
-    throw new Error(`Giáo viên chỉ có quyền thêm học sinh vào lớp ${staff.lop}.`)
-  }
-
   const cleanPin = pin.trim()
-  const randomSuffix = Math.floor(10 + Math.random() * 90)
-  const ma = `HS${cleanLop}${randomSuffix}`
-  const email = `${ma.toLowerCase()}@ecochibi.local`
-  const password = `eco-${cleanPin}`
 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
+  const { data, error } = await supabase.rpc('tao_hoc_sinh_moi', {
+    p_ho_ten: ho_ten.trim(),
+    p_lop: cleanLop,
+    p_pin: cleanPin,
   })
 
-  if (authError) {
-    throw new Error(authError.message || 'Không thể tạo tài khoản mới.')
-  }
-
-  const parts = ho_ten.trim().split(/\s+/)
-  const tenHienThi = parts.length < 2 ? ho_ten : `${parts.slice(1).join(' ')} ${parts[0][0]}.`
-
-  const { data: profile, error: insertError } = await supabase
-    .from('users')
-    .insert([
-      {
-        id: authData.user.id,
-        ma_dang_nhap: ma,
-        ho_ten: ho_ten.trim(),
-        ten_hien_thi: tenHienThi,
-        lop: cleanLop,
-        vai_tro: 'student',
-        diem_hien_co: 50,
-        tong_diem_tich_luy: 50,
-      },
-    ])
-    .select()
-    .single()
-
-  if (insertError) {
-    throw new Error(insertError.message || 'Không thể lưu học sinh vào database.')
+  if (error) {
+    throw new Error(error.message || 'Không thể tạo tài khoản học sinh mới.')
   }
 
   return {
-    ...profile,
+    ...data,
     pin: cleanPin,
   }
 }

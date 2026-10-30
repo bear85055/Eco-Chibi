@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { dangNhap, dangXuat, layThongTinToi } from '../services/authService'
+import { dangNhap, dangXuat, layThongTinToi, onAuthChange } from '../services/authService'
 
 const PlayerCtx = createContext(null)
 
@@ -20,6 +20,14 @@ export function PlayerProvider({ children }) {
 
   useEffect(() => {
     refresh().finally(() => setLoading(false))
+    const unsubscribe = onAuthChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        refresh()
+      }
+    })
+    return unsubscribe
   }, [refresh])
 
   const login = useCallback(async (ma, pin) => {

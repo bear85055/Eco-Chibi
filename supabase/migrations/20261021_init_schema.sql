@@ -1,5 +1,5 @@
 -- ==============================================================================
--- ECO CHIBI — SCHEMA DEFINITION (GIAI ĐOẠN 3)
+-- ECO CHIBI — SCHEMA DEFINITION
 -- Cơ sở dữ liệu: PostgreSQL 15+ trên Supabase
 -- ==============================================================================
 
@@ -93,3 +93,6 @@ SELECT
   ROW_NUMBER() OVER (ORDER BY tong_diem_tich_luy DESC, thoi_diem_dat_diem ASC) AS hang
 FROM public.users
 WHERE vai_tro = 'student';
+
+REVOKE ALL ON public.v_leaderboard FROM PUBLIC, anon;
+GRANT SELECT ON public.v_leaderboard TO authenticated;

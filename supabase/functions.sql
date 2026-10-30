@@ -472,5 +472,180 @@ BEGIN
 
   RETURN jsonb_build_object('success', true, 'new_pin', p_new_pin);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ------------------------------------------------------------------------------
+-- 9. TAO_HOC_SINH_MOI: Admin/Giáo viên thêm học sinh mà không làm mất phiên đăng nhập
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.tao_hoc_sinh_moi(
+  p_ho_ten TEXT,
+  p_lop VARCHAR,
+  p_pin VARCHAR DEFAULT '1234'
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_staff RECORD;
+  v_clean_lop VARCHAR;
+  v_count INT;
+  v_ma VARCHAR;
+  v_email TEXT;
+  v_password TEXT;
+  v_uid UUID;
+  v_parts TEXT[];
+  v_ten_rut_gon TEXT;
+BEGIN
+  SELECT * INTO v_staff FROM public.users WHERE id = auth.uid();
+  IF v_staff.vai_tro NOT IN ('teacher', 'admin') THEN
+    RAISE EXCEPTION 'Chỉ thầy cô hoặc ban phụ trách mới có quyền thêm học sinh.';
+  END IF;
+
+  v_clean_lop := UPPER(REGEXP_REPLACE(TRIM(p_lop), '\s+', '', 'g'));
+  IF v_staff.vai_tro = 'teacher' AND v_clean_lop <> v_staff.lop THEN
+    RAISE EXCEPTION 'Giáo viên chỉ có quyền thêm học sinh vào lớp %.', v_staff.lop;
+  END IF;
+
+  SELECT COUNT(*) + 1 INTO v_count
+  FROM public.users
+  WHERE vai_tro = 'student' AND lop = v_clean_lop;
+
+  LOOP
+    v_ma := 'HS' || v_clean_lop || LPAD(v_count::TEXT, 2, '0');
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.users WHERE ma_dang_nhap = v_ma);
+    v_count := v_count + 1;
+  END LOOP;
+
+  v_email := LOWER(v_ma) || '@ecochibi.local';
+  v_password := 'eco-' || TRIM(p_pin);
+  v_uid := gen_random_uuid();
+
+  v_parts := regexp_split_to_array(TRIM(p_ho_ten), '\s+');
+  IF array_length(v_parts, 1) >= 2 THEN
+    v_ten_rut_gon := array_to_string(v_parts[2:array_length(v_parts, 1)], ' ') || ' ' || LEFT(v_parts[1], 1) || '.';
+  ELSE
+    v_ten_rut_gon := TRIM(p_ho_ten);
+  END IF;
+
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    v_uid,
+    'authenticated',
+    'authenticated',
+    v_email,
+    crypt(v_password, gen_salt('bf')),
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object('ma_dang_nhap', v_ma, 'ho_ten', TRIM(p_ho_ten), 'ten_hien_thi', v_ten_rut_gon, 'lop', v_clean_lop),
+    NOW(),
+    NOW()
+  );
+
+  INSERT INTO auth.identities (
+    id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+  ) VALUES (
+    gen_random_uuid(),
+    v_uid,
+    jsonb_build_object('sub', v_uid::text, 'email', v_email),
+    'email',
+    v_uid::text,
+    NOW(),
+    NOW(),
+    NOW()
+  );
+
+  INSERT INTO public.users (
+    id, ma_dang_nhap, ho_ten, ten_hien_thi, lop, vai_tro,
+    diem_hien_co, tong_diem_tich_luy, diem_kiem_hom_nay, ngay_cap_nhat_cuoi, thoi_diem_dat_diem
+  ) VALUES (
+    v_uid, v_ma, TRIM(p_ho_ten), v_ten_rut_gon, v_clean_lop, 'student',
+    50, 0, 0, CURRENT_DATE, NOW()
+  );
+
+  INSERT INTO public.point_logs (user_id, loai, xp, xu, ly_do, nguoi_tao)
+  VALUES (v_uid, 'thuong_nong', 0, 50, 'Quà chào mừng thành viên mới 🌱', auth.uid());
+
+  RETURN jsonb_build_object(
+    'id', v_uid,
+    'ma_dang_nhap', v_ma,
+    'ho_ten', TRIM(p_ho_ten),
+    'ten_hien_thi', v_ten_rut_gon,
+    'lop', v_clean_lop,
+    'vai_tro', 'student',
+    'diem_hien_co', 50,
+    'tong_diem_tich_luy', 0
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ------------------------------------------------------------------------------
+-- 10. TRIGGER TỰ ĐỘNG KHỞI TẠO HỒ SƠ KHI HỌC SINH ĐĂNG KÝ QUA SUPABASE AUTH
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_ma VARCHAR;
+  v_ho_ten TEXT;
+  v_ten_hien_thi TEXT;
+  v_lop VARCHAR;
+BEGIN
+  v_ma := NEW.raw_user_meta_data->>'ma_dang_nhap';
+  v_ho_ten := NEW.raw_user_meta_data->>'ho_ten';
+  v_ten_hien_thi := COALESCE(NEW.raw_user_meta_data->>'ten_hien_thi', v_ho_ten);
+  v_lop := NEW.raw_user_meta_data->>'lop';
+
+  IF v_ma IS NOT NULL AND v_ho_ten IS NOT NULL AND v_lop IS NOT NULL THEN
+    INSERT INTO public.users (
+      id, ma_dang_nhap, ho_ten, ten_hien_thi, lop, vai_tro,
+      diem_hien_co, tong_diem_tich_luy, diem_kiem_hom_nay, ngay_cap_nhat_cuoi, thoi_diem_dat_diem
+    ) VALUES (
+      NEW.id, v_ma, v_ho_ten, v_ten_hien_thi, v_lop, 'student',
+      50, 0, 0, CURRENT_DATE, NOW()
+    )
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.point_logs (user_id, loai, xp, xu, ly_do)
+    VALUES (NEW.id, 'thuong_nong', 0, 50, 'Quà chào mừng thành viên mới 🌱');
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+
+-- ------------------------------------------------------------------------------
+-- 11. PHÂN QUYỀN THỰC THI RPC (CHỈ CHO PHÉP NGƯỜI DÙNG ĐÃ XÁC THỰC)
+-- ------------------------------------------------------------------------------
+REVOKE EXECUTE ON FUNCTION public.bat_dau_game(VARCHAR) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.bat_dau_game(VARCHAR) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.nop_ket_qua_game(UUID, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.nop_ket_qua_game(UUID, INT) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.doi_qua(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.doi_qua(UUID) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.xac_nhan_phat_qua(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.xac_nhan_phat_qua(TEXT) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.huy_doi_qua(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.huy_doi_qua(UUID, TEXT) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.cong_diem_thuong(UUID, INT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cong_diem_thuong(UUID, INT, TEXT) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.nop_nhiem_vu(VARCHAR, BOOLEAN, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.nop_nhiem_vu(VARCHAR, BOOLEAN, INT) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.cap_lai_pin(UUID, VARCHAR) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cap_lai_pin(UUID, VARCHAR) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.tao_hoc_sinh_moi(TEXT, VARCHAR, VARCHAR) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tao_hoc_sinh_moi(TEXT, VARCHAR, VARCHAR) TO authenticated;
+
 
