@@ -7,6 +7,7 @@
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   ma_dang_nhap VARCHAR(32) UNIQUE NOT NULL,
+  pin VARCHAR(16) NOT NULL DEFAULT '1234',
   ho_ten VARCHAR(128) NOT NULL,
   ten_hien_thi VARCHAR(64) NOT NULL,
   lop VARCHAR(16) NOT NULL,
@@ -21,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.users (
   nv_do_vui JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS pin VARCHAR(16) NOT NULL DEFAULT '1234';
 
 -- Index xếp hạng điểm XP (thời điểm đạt điểm làm tiêu chí phụ phân thứ hạng)
 CREATE INDEX IF NOT EXISTS idx_users_leaderboard ON public.users (tong_diem_tich_luy DESC, thoi_diem_dat_diem ASC)
@@ -38,6 +41,8 @@ CREATE TABLE IF NOT EXISTS public.rewards (
   mo_ta TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS pin VARCHAR(16) NOT NULL DEFAULT '1234';
 
 -- 3. BẢNG REDEMPTIONS (Lịch sử đổi quà / Hộp quà của học sinh)
 CREATE TABLE IF NOT EXISTS public.redemptions (
@@ -707,16 +712,18 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ------------------------------------------------------------------------------
--- 8. CAP_LAI_PIN: Giáo viên cấp lại PIN cho học sinh
+-- 8. CAP_LAI_PIN: Giáo viên / Admin cấp lại PIN cho học sinh
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.cap_lai_pin(p_student_id UUID, p_new_pin VARCHAR)
 RETURNS JSONB AS $$
 DECLARE
-  v_staff RECORD;
+  v_role VARCHAR;
+  v_staff_lop VARCHAR;
   v_student RECORD;
+  v_clean_pin VARCHAR := TRIM(p_new_pin);
 BEGIN
-  SELECT * INTO v_staff FROM public.users WHERE id = auth.uid();
-  IF v_staff.vai_tro NOT IN ('teacher', 'admin') THEN
+  v_role := public.current_user_role();
+  IF v_role IS NULL OR v_role NOT IN ('teacher', 'admin') THEN
     RAISE EXCEPTION 'Chỉ thầy cô hoặc ban phụ trách mới có quyền cấp lại PIN.';
   END IF;
 
@@ -725,15 +732,24 @@ BEGIN
     RAISE EXCEPTION 'Không tìm thấy học sinh.';
   END IF;
 
-  IF v_staff.vai_tro = 'teacher' AND v_student.lop <> v_staff.lop THEN
-    RAISE EXCEPTION 'Bạn chỉ có quyền thao tác học sinh lớp %.', v_staff.lop;
+  IF v_role = 'teacher' THEN
+    v_staff_lop := public.current_user_lop();
+    IF v_student.lop <> v_staff_lop THEN
+      RAISE EXCEPTION 'Bạn chỉ có quyền thao tác học sinh lớp %.', v_staff_lop;
+    END IF;
   END IF;
 
   UPDATE auth.users
-  SET encrypted_password = crypt('eco-' || p_new_pin, gen_salt('bf'))
+  SET encrypted_password = extensions.crypt('eco-' || v_clean_pin, extensions.gen_salt('bf', 10)),
+      raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('pin', v_clean_pin),
+      updated_at = NOW()
   WHERE id = p_student_id;
 
-  RETURN jsonb_build_object('success', true, 'new_pin', p_new_pin);
+  UPDATE public.users
+  SET pin = v_clean_pin
+  WHERE id = p_student_id;
+
+  RETURN jsonb_build_object('success', true, 'new_pin', v_clean_pin);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
@@ -820,13 +836,13 @@ BEGIN
   );
 
   INSERT INTO public.users (
-    id, ma_dang_nhap, ho_ten, ten_hien_thi, lop, vai_tro,
+    id, ma_dang_nhap, pin, ho_ten, ten_hien_thi, lop, vai_tro,
     diem_hien_co, tong_diem_tich_luy, diem_kiem_hom_nay, ngay_cap_nhat_cuoi, thoi_diem_dat_diem
   ) VALUES (
-    v_uid, v_ma, TRIM(p_ho_ten), v_ten_rut_gon, v_clean_lop, 'student',
+    v_uid, v_ma, TRIM(p_pin), TRIM(p_ho_ten), v_ten_rut_gon, v_clean_lop, 'student',
     50, 0, 0, CURRENT_DATE, NOW()
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE SET pin = EXCLUDED.pin;
 
   INSERT INTO public.point_logs (user_id, loai, xp, xu, ly_do, nguoi_tao)
   VALUES (v_uid, 'thuong_nong', 0, 50, 'Quà chào mừng thành viên mới 🌱', auth.uid());
@@ -879,10 +895,10 @@ BEGIN
 
   IF v_ma IS NOT NULL AND v_ho_ten IS NOT NULL AND v_lop IS NOT NULL THEN
     INSERT INTO public.users (
-      id, ma_dang_nhap, ho_ten, ten_hien_thi, lop, vai_tro,
+      id, ma_dang_nhap, pin, ho_ten, ten_hien_thi, lop, vai_tro,
       diem_hien_co, tong_diem_tich_luy, diem_kiem_hom_nay, ngay_cap_nhat_cuoi, thoi_diem_dat_diem
     ) VALUES (
-      NEW.id, v_ma, v_ho_ten, v_ten_hien_thi, v_lop, 'student',
+      NEW.id, v_ma, COALESCE(NEW.raw_user_meta_data->>'pin', '1234'), v_ho_ten, v_ten_hien_thi, v_lop, 'student',
       50, 0, 0, CURRENT_DATE, NOW()
     )
     ON CONFLICT (id) DO NOTHING;

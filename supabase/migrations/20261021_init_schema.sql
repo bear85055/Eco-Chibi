@@ -7,6 +7,7 @@
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   ma_dang_nhap VARCHAR(32) UNIQUE NOT NULL,
+  pin VARCHAR(16) NOT NULL DEFAULT '1234',
   ho_ten VARCHAR(128) NOT NULL,
   ten_hien_thi VARCHAR(64) NOT NULL,
   lop VARCHAR(16) NOT NULL,
@@ -21,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.users (
   nv_do_vui JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS pin VARCHAR(16) NOT NULL DEFAULT '1234';
 
 -- Index xếp hạng điểm XP (thời điểm đạt điểm làm tiêu chí phụ phân thứ hạng)
 CREATE INDEX IF NOT EXISTS idx_users_leaderboard ON public.users (tong_diem_tich_luy DESC, thoi_diem_dat_diem ASC)
@@ -38,6 +41,8 @@ CREATE TABLE IF NOT EXISTS public.rewards (
   mo_ta TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS pin VARCHAR(16) NOT NULL DEFAULT '1234';
 
 -- 3. BẢNG REDEMPTIONS (Lịch sử đổi quà / Hộp quà của học sinh)
 CREATE TABLE IF NOT EXISTS public.redemptions (

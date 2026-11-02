@@ -813,8 +813,8 @@ export async function congDiemThuongHocSinh(studentId, { diem, lyDo }) {
   return { success: true, student: publicUser(student) }
 }
 
-/** Cấp lại PIN 4 số ngẫu nhiên cho học sinh */
-export async function capLaiPinHocSinh(studentId) {
+/** Cấp lại PIN 4 số cho học sinh */
+export async function capLaiPinHocSinh(studentId, customPin) {
   await delay(200)
   const db = load()
   const staff = requireStaff(db)
@@ -825,7 +825,10 @@ export async function capLaiPinHocSinh(studentId) {
     throw new ApiError(`Bạn chỉ có quyền thao tác học sinh lớp ${staff.lop}.`)
   }
 
-  const newPin = String(Math.floor(1000 + Math.random() * 9000))
+  const newPin =
+    customPin && /^\d{4}$/.test(String(customPin).trim())
+      ? String(customPin).trim()
+      : String(Math.floor(1000 + Math.random() * 9000))
   student.pin = newPin
   save(db)
   return { success: true, newPin, student: publicUser(student) }

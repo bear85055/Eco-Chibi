@@ -36,6 +36,7 @@ export default function StudentList() {
   // Modal Cấp Lại PIN
   const [pinStudent, setPinStudent] = useState(null)
   const [newPinResult, setNewPinResult] = useState(null)
+  const [customPinInput, setCustomPinInput] = useState('')
 
   // Modal Thêm Học Sinh Thủ Công
   const [addStudentModal, setAddStudentModal] = useState(false)
@@ -85,14 +86,24 @@ export default function StudentList() {
   const handleResetPin = async (student) => {
     setPinStudent(student)
     setNewPinResult(null)
+    setCustomPinInput(String(Math.floor(1000 + Math.random() * 9000)))
   }
 
   const confirmResetPin = async () => {
+    if (customPinInput && !/^\d{4}$/.test(customPinInput)) {
+      return toast('Mã PIN mới phải gồm đúng 4 chữ số!', 'error')
+    }
     setBusy(true)
     try {
-      const res = await capLaiPinHocSinh(pinStudent.id)
+      const res = await capLaiPinHocSinh(pinStudent.id, customPinInput)
       setNewPinResult(res.newPin)
-      toast(`Đã đổi mã PIN mới cho em ${pinStudent.ho_ten}!`, 'success')
+      setPinStudent((prev) => (prev ? { ...prev, pin: res.newPin } : prev))
+      setData((prev) => ({
+        ...prev,
+        items: prev.items.map((it) => (it.id === pinStudent.id ? { ...it, pin: res.newPin } : it)),
+      }))
+      sfx.win()
+      toast(`Đã đổi mã PIN mới (${res.newPin}) cho em ${pinStudent.ho_ten}!`, 'success')
       load()
     } catch (err) {
       toast(err.message, 'error')
@@ -260,7 +271,7 @@ export default function StudentList() {
                           title="Cấp lại mã PIN"
                           onClick={() => handleResetPin(st)}
                         >
-                          🔑 PIN: {st.pin}
+                          🔑 PIN: {st.pin || '1234'}
                         </button>
                       </div>
                     </td>
@@ -352,7 +363,7 @@ export default function StudentList() {
 
             <div style={{ margin: '14px 0', padding: '14px', background: 'var(--mint-50)', borderRadius: '16px', width: '100%' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--ink-600)', fontWeight: 700 }}>
-                {newPinResult ? 'Mã PIN mới đã được cấp thành công:' : 'Mã PIN hiện tại của em:'}
+                {newPinResult ? '✅ Mã PIN mới đã được cấp thành công:' : 'Mã PIN hiện tại của em:'}
               </div>
               <div
                 id="pin-display"
@@ -365,17 +376,49 @@ export default function StudentList() {
                   marginTop: '4px',
                 }}
               >
-                {newPinResult || pinStudent.pin}
+                {newPinResult || pinStudent.pin || '1234'}
               </div>
             </div>
 
+            {!newPinResult && (
+              <div className="field" style={{ width: '100%', textAlign: 'left', marginBottom: '12px' }}>
+                <span className="field__label">Nhập mã PIN 4 số mới (hoặc bấm Ngẫu nhiên):</span>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  <input
+                    id="custom-pin-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="field__input"
+                    placeholder="VD: 5678"
+                    value={customPinInput}
+                    onChange={(e) => setCustomPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    style={{ fontWeight: 800, letterSpacing: '3px', textAlign: 'center', fontSize: '1.1rem' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => setCustomPinInput(String(Math.floor(1000 + Math.random() * 9000)))}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    🎲 Ngẫu nhiên
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="modal__actions">
               <button className="btn btn--ghost" onClick={() => setPinStudent(null)}>
-                Xong
+                {newPinResult ? 'Đóng' : 'Hủy'}
               </button>
               {!newPinResult && (
-                <button id="btn-generate-pin" className="btn btn--primary" onClick={confirmResetPin} disabled={busy}>
-                  {busy ? 'Đang cấp...' : 'Tạo PIN mới ngẫu nhiên'}
+                <button
+                  id="btn-generate-pin"
+                  className="btn btn--primary"
+                  onClick={confirmResetPin}
+                  disabled={busy || customPinInput.trim().length !== 4}
+                >
+                  {busy ? 'Đang lưu...' : `Đổi sang PIN ${customPinInput || '....'}`}
                 </button>
               )}
             </div>

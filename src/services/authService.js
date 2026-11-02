@@ -30,6 +30,54 @@ export function formatUser(u) {
 }
 
 const ADMIN_SECRET = import.meta.env?.VITE_ADMIN_PASSWORD || 'EcoChibi@2026'
+const PIN_MAP_KEY = 'ecochibi_pin_map'
+
+export function savePinCache(userId, pin) {
+  if (!userId || !pin) return
+  try {
+    const raw = localStorage.getItem(PIN_MAP_KEY)
+    const map = raw ? JSON.parse(raw) : {}
+    map[userId] = String(pin)
+    localStorage.setItem(PIN_MAP_KEY, JSON.stringify(map))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getPinCache(userId) {
+  if (!userId) return null
+  try {
+    const raw = localStorage.getItem(PIN_MAP_KEY)
+    const map = raw ? JSON.parse(raw) : {}
+    return map[userId] || null
+  } catch {
+    return null
+  }
+}
+
+async function ensureAdminProfileInDb(authUser) {
+  if (!supabase || !authUser) return null
+  try {
+    const prefix = (authUser.email || '').split('@')[0] || 'admin.portal'
+    await supabase.rpc('tao_tai_khoan_demo', {
+      p_ma: prefix,
+      p_pin: ADMIN_SECRET,
+      p_ho_ten: 'Admin',
+      p_lop: 'Toàn trường',
+      p_vai_tro: 'admin',
+      p_xu: 0,
+      p_xp: 0,
+    })
+    const { data: profile } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authUser.id)
+      .single()
+    return profile
+  } catch {
+    return null
+  }
+}
 
 export async function dangNhap(ma, pin) {
   if (!supabase) {
@@ -65,11 +113,15 @@ export async function dangNhap(ma, pin) {
       throw new Error(authError?.message || 'Đăng nhập Admin không thành công.')
     }
 
-    const { data: profile } = await supabase
+    let { data: profile } = await supabase
       .from('users')
       .select('*')
       .eq('id', authData.user.id)
       .single()
+
+    if (!profile) {
+      profile = await ensureAdminProfileInDb(authData.user)
+    }
 
     return formatUser(
       profile || {
@@ -135,6 +187,7 @@ export async function dangKyHocSinh({ ho_ten, lop, pin }) {
     options: {
       data: {
         ma_dang_nhap: ma,
+        pin: cleanPin,
         ho_ten: ho_ten.trim(),
         ten_hien_thi: tenHienThi,
         lop: cleanLop,
@@ -146,13 +199,14 @@ export async function dangKyHocSinh({ ho_ten, lop, pin }) {
     throw new Error(authError.message || 'Không thể tạo tài khoản mới.')
   }
 
-  const { data: profile, error: insertError } = await supabase
+  let { data: profile, error: insertError } = await supabase
     .from('users')
     .upsert(
       [
         {
           id: authData.user.id,
           ma_dang_nhap: ma,
+          pin: cleanPin,
           ho_ten: ho_ten.trim(),
           ten_hien_thi: tenHienThi,
           lop: cleanLop,
@@ -166,10 +220,36 @@ export async function dangKyHocSinh({ ho_ten, lop, pin }) {
     .select()
     .single()
 
+  // Fallback nếu bảng users trên Supabase chưa chạy lệnh thêm cột pin
+  if (insertError) {
+    const retry = await supabase
+      .from('users')
+      .upsert(
+        [
+          {
+            id: authData.user.id,
+            ma_dang_nhap: ma,
+            ho_ten: ho_ten.trim(),
+            ten_hien_thi: tenHienThi,
+            lop: cleanLop,
+            vai_tro: 'student',
+            diem_hien_co: 50,
+            tong_diem_tich_luy: 0,
+          },
+        ],
+        { onConflict: 'id' },
+      )
+      .select()
+      .single()
+    profile = retry.data
+    insertError = retry.error
+  }
+
   if (insertError) {
     throw new Error(insertError.message || 'Không thể lưu hồ sơ học sinh.')
   }
 
+  savePinCache(authData.user.id, cleanPin)
   return formatUser(profile)
 }
 
@@ -197,6 +277,9 @@ export async function layThongTinToi() {
   if (profile) return formatUser(profile)
 
   if (authUser.email === 'admin.portal@ecochibi.local' || authUser.email === 'admin@ecochibi.local') {
+    const syncedProfile = await ensureAdminProfileInDb(authUser)
+    if (syncedProfile) return formatUser(syncedProfile)
+
     return formatUser({
       id: authUser.id,
       ma_dang_nhap: 'ADMIN',

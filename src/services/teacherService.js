@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 import * as mock from './mock/mockBackend'
-import { layThongTinToi } from './authService'
+import { getPinCache, layThongTinToi, savePinCache } from './authService'
 
 export async function layDanhSachDuyetQua({ lop = 'all', tuKhoa = '', trangThai = 'all' } = {}) {
   if (!supabase) {
@@ -165,7 +165,10 @@ export async function layDanhSachHocSinh({ lop = 'all', tuKhoa = '' } = {}) {
   const { data, error } = await query
   if (error) throw new Error(error.message || 'Không thể tải danh sách học sinh.')
 
-  let items = data || []
+  let items = (data || []).map((u) => ({
+    ...u,
+    pin: getPinCache(u.id) || u.pin || '1234',
+  }))
   const filterLop = staff?.vai_tro === 'teacher' ? staff.lop : lop
   if (filterLop !== 'all') {
     items = items.filter((u) => u.lop === filterLop)
@@ -195,6 +198,8 @@ export async function congDiemThuongHocSinh(studentId, { diem, lyDo }) {
     return mock.congDiemThuongHocSinh(studentId, { diem, lyDo })
   }
 
+  await layThongTinToi()
+
   const { data, error } = await supabase.rpc('cong_diem_thuong', {
     p_student_id: studentId,
     p_diem: diem,
@@ -205,29 +210,60 @@ export async function congDiemThuongHocSinh(studentId, { diem, lyDo }) {
   return data
 }
 
-export async function capLaiPinHocSinh(studentId) {
+export async function capLaiPinHocSinh(studentId, customPin) {
+  const newPin =
+    customPin && /^\d{4}$/.test(String(customPin).trim())
+      ? String(customPin).trim()
+      : String(Math.floor(1000 + Math.random() * 9000))
+
   if (!supabase) {
-    return mock.capLaiPinHocSinh(studentId)
+    return mock.capLaiPinHocSinh(studentId, newPin)
   }
 
-  const newPin = String(Math.floor(1000 + Math.random() * 9000))
+  await layThongTinToi()
+
   const { data, error } = await supabase.rpc('cap_lai_pin', {
     p_student_id: studentId,
     p_new_pin: newPin,
   })
 
   if (error) {
-    // Nếu RPC chưa cài, fallback sang mock
-    return mock.capLaiPinHocSinh(studentId)
+    // Dự phòng cập nhật qua RPC khởi tạo nếu hàm cap_lai_pin chưa đồng bộ quyền
+    const { data: st } = await supabase
+      .from('users')
+      .select('ma_dang_nhap, ho_ten, lop')
+      .eq('id', studentId)
+      .single()
+
+    if (st?.ma_dang_nhap) {
+      const { error: fallbackErr } = await supabase.rpc('tao_tai_khoan_demo', {
+        p_ma: st.ma_dang_nhap,
+        p_pin: newPin,
+        p_ho_ten: st.ho_ten || 'Học sinh',
+        p_lop: st.lop || '1A',
+        p_vai_tro: 'student',
+        p_xu: 0,
+        p_xp: 0,
+      })
+      if (!fallbackErr) {
+        savePinCache(studentId, newPin)
+        return { success: true, newPin, student: st }
+      }
+    }
+    throw new Error(error.message || 'Không thể cấp lại mã PIN cho học sinh.')
   }
 
-  return { success: true, newPin, student: data }
+  const finalPin = data?.new_pin || newPin
+  savePinCache(studentId, finalPin)
+  return { success: true, newPin: finalPin, student: data }
 }
 
 export async function themHocSinhThuCong({ ho_ten, lop, pin = '1234' }) {
   if (!supabase) {
     return mock.themHocSinhThuCong({ ho_ten, lop, pin })
   }
+
+  await layThongTinToi()
 
   const cleanLop = (lop || '').trim().toUpperCase().replace(/\s/g, '')
   const cleanPin = pin.trim()
@@ -240,6 +276,10 @@ export async function themHocSinhThuCong({ ho_ten, lop, pin = '1234' }) {
 
   if (error) {
     throw new Error(error.message || 'Không thể tạo tài khoản học sinh mới.')
+  }
+
+  if (data?.id) {
+    savePinCache(data.id, cleanPin)
   }
 
   return {
