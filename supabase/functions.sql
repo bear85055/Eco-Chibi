@@ -472,7 +472,7 @@ BEGIN
 
   RETURN jsonb_build_object('success', true, 'new_pin', p_new_pin);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- ------------------------------------------------------------------------------
 -- 9. TAO_HOC_SINH_MOI: Admin/Giáo viên thêm học sinh mà không làm mất phiên đăng nhập
@@ -527,7 +527,8 @@ BEGIN
 
   INSERT INTO auth.users (
     instance_id, id, aud, role, email, encrypted_password,
-    email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+    email_confirmed_at, confirmation_token, recovery_token, email_change_token_new, email_change,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   ) VALUES (
     '00000000-0000-0000-0000-000000000000',
     v_uid,
@@ -535,7 +536,7 @@ BEGIN
     'authenticated',
     v_email,
     crypt(v_password, gen_salt('bf')),
-    NOW(),
+    NOW(), '', '', '', '',
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('ma_dang_nhap', v_ma, 'ho_ten', TRIM(p_ho_ten), 'ten_hien_thi', v_ten_rut_gon, 'lop', v_clean_lop),
     NOW(),
@@ -547,7 +548,7 @@ BEGIN
   ) VALUES (
     gen_random_uuid(),
     v_uid,
-    jsonb_build_object('sub', v_uid::text, 'email', v_email),
+    jsonb_build_object('sub', v_uid::text, 'email', v_email, 'email_verified', true, 'phone_verified', false),
     'email',
     v_uid::text,
     NOW(),
@@ -561,7 +562,8 @@ BEGIN
   ) VALUES (
     v_uid, v_ma, TRIM(p_ho_ten), v_ten_rut_gon, v_clean_lop, 'student',
     50, 0, 0, CURRENT_DATE, NOW()
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO public.point_logs (user_id, loai, xp, xu, ly_do, nguoi_tao)
   VALUES (v_uid, 'thuong_nong', 0, 50, 'Quà chào mừng thành viên mới 🌱', auth.uid());
@@ -577,7 +579,7 @@ BEGIN
     'tong_diem_tich_luy', 0
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- ------------------------------------------------------------------------------
 -- 10. TRIGGER TỰ ĐỘNG KHỞI TẠO HỒ SƠ KHI HỌC SINH ĐĂNG KÝ QUA SUPABASE AUTH

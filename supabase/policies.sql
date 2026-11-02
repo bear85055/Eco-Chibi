@@ -1,5 +1,5 @@
 -- ==============================================================================
--- ECO CHIBI — ROW LEVEL SECURITY (RLS) POLICIES & GRANTS
+-- ECO CHIBI — ROW LEVEL SECURITY (RLS) POLICIES & GRANTS (IDEMPOTENT)
 -- ==============================================================================
 
 -- Bật RLS trên toàn bộ các bảng
@@ -9,7 +9,7 @@ ALTER TABLE public.redemptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.point_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.game_sessions ENABLE ROW LEVEL SECURITY;
 
--- Cấp quyền truy cập bảng và view cho role authenticated (theo nguyên tắc tối thiểu)
+-- Cấp quyền truy cập bảng và view cho role authenticated
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT, INSERT ON public.users TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.rewards TO authenticated;
@@ -24,7 +24,7 @@ RETURNS VARCHAR
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
   SELECT vai_tro FROM public.users WHERE id = (SELECT auth.uid());
 $$;
@@ -35,7 +35,7 @@ RETURNS VARCHAR
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
   SELECT lop FROM public.users WHERE id = (SELECT auth.uid());
 $$;
@@ -48,24 +48,25 @@ GRANT EXECUTE ON FUNCTION public.current_user_lop() TO authenticated;
 -- ------------------------------------------------------------------------------
 -- 1. POLICIES: USERS
 -- ------------------------------------------------------------------------------
--- Học sinh xem thông tin của chính mình
+DROP POLICY IF EXISTS "Users read self" ON public.users;
 CREATE POLICY "Users read self" ON public.users
   FOR SELECT TO authenticated
   USING ((SELECT auth.uid()) = id);
 
--- Giáo viên xem danh sách học sinh lớp mình phụ trách
+DROP POLICY IF EXISTS "Teacher read class students" ON public.users;
 CREATE POLICY "Teacher read class students" ON public.users
   FOR SELECT TO authenticated
   USING (
     (SELECT public.current_user_role()) = 'teacher' AND lop = (SELECT public.current_user_lop())
   );
 
--- Admin xem toàn bộ người dùng
+DROP POLICY IF EXISTS "Admin read all users" ON public.users;
 CREATE POLICY "Admin read all users" ON public.users
   FOR SELECT TO authenticated
   USING ((SELECT public.current_user_role()) = 'admin');
 
--- Học sinh tự đăng ký hồ sơ (chỉ được phép gán vai_tro = 'student' và điểm khởi tạo hợp lệ)
+DROP POLICY IF EXISTS "Insert user profile" ON public.users;
+DROP POLICY IF EXISTS "Insert own student profile" ON public.users;
 CREATE POLICY "Insert own student profile" ON public.users
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -79,22 +80,20 @@ CREATE POLICY "Insert own student profile" ON public.users
     OR (SELECT public.current_user_role()) IN ('teacher', 'admin')
   );
 
--- CẤM mọi UPDATE/DELETE trực tiếp điểm và tài khoản từ client. Chỉ cho phép qua RPC!
-
 -- ------------------------------------------------------------------------------
 -- 2. POLICIES: REWARDS
 -- ------------------------------------------------------------------------------
--- Người dùng đã đăng nhập xem được các món quà đang hoạt động
+DROP POLICY IF EXISTS "Read active rewards" ON public.rewards;
 CREATE POLICY "Read active rewards" ON public.rewards
   FOR SELECT TO authenticated
   USING (dang_hoat_dong = true);
 
--- Giáo viên & Admin xem toàn bộ kho quà (cả món đang ẩn)
+DROP POLICY IF EXISTS "Staff read all rewards" ON public.rewards;
 CREATE POLICY "Staff read all rewards" ON public.rewards
   FOR SELECT TO authenticated
   USING ((SELECT public.current_user_role()) IN ('teacher', 'admin'));
 
--- Giáo viên & Admin được thêm/sửa/xóa món quà
+DROP POLICY IF EXISTS "Staff manage rewards" ON public.rewards;
 CREATE POLICY "Staff manage rewards" ON public.rewards
   FOR ALL TO authenticated
   USING ((SELECT public.current_user_role()) IN ('teacher', 'admin'))
@@ -103,12 +102,12 @@ CREATE POLICY "Staff manage rewards" ON public.rewards
 -- ------------------------------------------------------------------------------
 -- 3. POLICIES: REDEMPTIONS
 -- ------------------------------------------------------------------------------
--- Học sinh đọc đơn quà của chính mình
+DROP POLICY IF EXISTS "Students read own redemptions" ON public.redemptions;
 CREATE POLICY "Students read own redemptions" ON public.redemptions
   FOR SELECT TO authenticated
   USING ((SELECT auth.uid()) = user_id);
 
--- Giáo viên đọc đơn quà của học sinh lớp mình
+DROP POLICY IF EXISTS "Teacher read class redemptions" ON public.redemptions;
 CREATE POLICY "Teacher read class redemptions" ON public.redemptions
   FOR SELECT TO authenticated
   USING (
@@ -119,7 +118,7 @@ CREATE POLICY "Teacher read class redemptions" ON public.redemptions
     )
   );
 
--- Admin đọc tất cả đơn quà
+DROP POLICY IF EXISTS "Admin read all redemptions" ON public.redemptions;
 CREATE POLICY "Admin read all redemptions" ON public.redemptions
   FOR SELECT TO authenticated
   USING ((SELECT public.current_user_role()) = 'admin');
@@ -127,12 +126,12 @@ CREATE POLICY "Admin read all redemptions" ON public.redemptions
 -- ------------------------------------------------------------------------------
 -- 4. POLICIES: POINT_LOGS
 -- ------------------------------------------------------------------------------
--- Học sinh đọc nhật ký điểm của mình
+DROP POLICY IF EXISTS "Students read own point logs" ON public.point_logs;
 CREATE POLICY "Students read own point logs" ON public.point_logs
   FOR SELECT TO authenticated
   USING ((SELECT auth.uid()) = user_id);
 
--- Giáo viên đọc nhật ký của lớp mình
+DROP POLICY IF EXISTS "Teacher read class point logs" ON public.point_logs;
 CREATE POLICY "Teacher read class point logs" ON public.point_logs
   FOR SELECT TO authenticated
   USING (
@@ -143,7 +142,7 @@ CREATE POLICY "Teacher read class point logs" ON public.point_logs
     )
   );
 
--- Admin đọc tất cả nhật ký điểm
+DROP POLICY IF EXISTS "Admin read all point logs" ON public.point_logs;
 CREATE POLICY "Admin read all point logs" ON public.point_logs
   FOR SELECT TO authenticated
   USING ((SELECT public.current_user_role()) = 'admin');
@@ -151,7 +150,7 @@ CREATE POLICY "Admin read all point logs" ON public.point_logs
 -- ------------------------------------------------------------------------------
 -- 5. POLICIES: GAME_SESSIONS
 -- ------------------------------------------------------------------------------
--- Học sinh đọc phiên chơi của chính mình
+DROP POLICY IF EXISTS "Students read own game sessions" ON public.game_sessions;
 CREATE POLICY "Students read own game sessions" ON public.game_sessions
   FOR SELECT TO authenticated
   USING ((SELECT auth.uid()) = user_id);

@@ -1,22 +1,10 @@
 -- ==============================================================================
 -- ECO CHIBI — SEED DATA (PRODUCTION READY)
--- Khởi tạo ban đầu: Tài khoản Ban Quản Trị / Tổng Phụ Trách & Giáo viên
--- Chạy tệp này trong Supabase SQL Editor sau khi đã chạy Schema, Policies & Functions.
+-- Khởi tạo ban đầu: Tài khoản Admin & Kho quà sinh thái mẫu
 -- ==============================================================================
 
--- 1. KHO QUÀ TẶNG:
--- Để trống để Thầy/Cô nhà trường tự thêm quà thực tế từ Cổng Giáo viên (/giao-vien/kho-qua)
--- (Không nạp sẵn quà mẫu)
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
--- ==============================================================================
--- 2. HƯỚNG DẪN TẠO TÀI KHOẢN TRÊN SUPABASE AUTH
---
--- Mỗi tài khoản tương ứng email: <ma_dang_nhap>@ecochibi.local
--- Mật khẩu bảo mật Admin: EcoChibi@2026
--- Mật khẩu Giáo viên mẫu: 1234
--- ==============================================================================
-
--- Helper function tạo tài khoản khởi đầu (Auth + Profile)
 CREATE OR REPLACE FUNCTION public.tao_tai_khoan_demo(
   p_ma VARCHAR,
   p_pin VARCHAR,
@@ -34,43 +22,56 @@ DECLARE
   v_parts TEXT[];
   v_ten_rut_gon VARCHAR;
 BEGIN
-  -- Kiểm tra đã tồn tại trong public.users chưa
+  -- Kiểm tra đã tồn tại trong public.users hoặc auth.users chưa
   SELECT id INTO v_uid FROM public.users WHERE ma_dang_nhap = UPPER(p_ma);
   IF v_uid IS NOT NULL THEN
+    UPDATE auth.users
+    SET encrypted_password = crypt(v_pwd, gen_salt('bf')),
+        email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+        confirmation_token = COALESCE(confirmation_token, ''),
+        recovery_token = COALESCE(recovery_token, ''),
+        email_change_token_new = COALESCE(email_change_token_new, ''),
+        email_change = COALESCE(email_change, '')
+    WHERE id = v_uid;
     RETURN v_uid;
   END IF;
 
-  -- Sinh UUID mới cho user
-  v_uid := gen_random_uuid();
+  SELECT id INTO v_uid FROM auth.users WHERE email = v_email;
+  IF v_uid IS NULL THEN
+    v_uid := gen_random_uuid();
 
-  -- Thêm vào auth.users (Supabase Auth)
-  INSERT INTO auth.users (
-    instance_id,
-    id,
-    aud,
-    role,
-    email,
-    encrypted_password,
-    email_confirmed_at,
-    raw_app_meta_data,
-    raw_user_meta_data,
-    created_at,
-    updated_at
-  ) VALUES (
-    '00000000-0000-0000-0000-000000000000',
-    v_uid,
-    'authenticated',
-    'authenticated',
-    v_email,
-    crypt(v_pwd, gen_salt('bf')),
-    NOW(),
-    '{"provider":"email","providers":["email"]}',
-    jsonb_build_object('ho_ten', p_ho_ten, 'ma', UPPER(p_ma)),
-    NOW(),
-    NOW()
-  );
+    INSERT INTO auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, confirmation_token, recovery_token, email_change_token_new, email_change,
+      raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+    ) VALUES (
+      '00000000-0000-0000-0000-000000000000',
+      v_uid,
+      'authenticated',
+      'authenticated',
+      v_email,
+      crypt(v_pwd, gen_salt('bf')),
+      NOW(), '', '', '', '',
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      jsonb_build_object('ho_ten', p_ho_ten, 'ma', UPPER(p_ma)),
+      NOW(),
+      NOW()
+    );
 
-  -- Tính tên hiển thị rút gọn
+    INSERT INTO auth.identities (
+      id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      v_uid,
+      jsonb_build_object('sub', v_uid::text, 'email', v_email, 'email_verified', true, 'phone_verified', false),
+      'email',
+      v_uid::text,
+      NOW(),
+      NOW(),
+      NOW()
+    );
+  END IF;
+
   v_parts := regexp_split_to_array(TRIM(p_ho_ten), '\s+');
   IF array_length(v_parts, 1) >= 2 THEN
     v_ten_rut_gon := array_to_string(v_parts[2:array_length(v_parts, 1)], ' ') || ' ' || SUBSTRING(v_parts[1] FROM 1 FOR 1) || '.';
@@ -78,39 +79,24 @@ BEGIN
     v_ten_rut_gon := p_ho_ten;
   END IF;
 
-  -- Thêm vào public.users
   INSERT INTO public.users (
-    id,
-    ma_dang_nhap,
-    ho_ten,
-    ten_hien_thi,
-    lop,
-    vai_tro,
-    diem_hien_co,
-    tong_diem_tich_luy,
-    diem_kiem_hom_nay,
-    ngay_cap_nhat_cuoi,
-    thoi_diem_dat_diem
+    id, ma_dang_nhap, ho_ten, ten_hien_thi, lop, vai_tro,
+    diem_hien_co, tong_diem_tich_luy, diem_kiem_hom_nay, ngay_cap_nhat_cuoi, thoi_diem_dat_diem
   ) VALUES (
-    v_uid,
-    UPPER(p_ma),
-    TRIM(p_ho_ten),
-    v_ten_rut_gon,
-    p_lop,
-    p_vai_tro,
-    p_xu,
-    p_xp,
-    0,
-    CURRENT_DATE,
-    NOW()
-  );
+    v_uid, UPPER(p_ma), TRIM(p_ho_ten), v_ten_rut_gon, p_lop, p_vai_tro,
+    p_xu, p_xp, 0, CURRENT_DATE, NOW()
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    ma_dang_nhap = EXCLUDED.ma_dang_nhap,
+    ho_ten = EXCLUDED.ho_ten,
+    ten_hien_thi = EXCLUDED.ten_hien_thi,
+    vai_tro = EXCLUDED.vai_tro;
 
   RETURN v_uid;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
--- Kích hoạt tài khoản khởi tạo:
--- Tài khoản Admin (Mật khẩu: admin)
+-- Khởi tạo tài khoản Admin (Mã: ADMIN / Mật khẩu: admin)
 SELECT public.tao_tai_khoan_demo('ADMIN', 'admin', 'Admin', 'Toàn trường', 'admin', 0, 0);
 
 -- Kho quà mẫu khởi tạo:
