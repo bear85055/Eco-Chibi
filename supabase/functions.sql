@@ -173,9 +173,10 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ------------------------------------------------------------------------------
--- 4. XAC_NHAN_PHAT_QUA: Giáo viên duyệt trao quà
+-- 4. XAC_NHAN_PHAT_QUA: Giáo viên duyệt trao quà (hỗ trợ cả ID đơn hoặc mã GX-XXXX)
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.xac_nhan_phat_qua(p_redemption_id UUID)
+DROP FUNCTION IF EXISTS public.xac_nhan_phat_qua(UUID);
+CREATE OR REPLACE FUNCTION public.xac_nhan_phat_qua(p_redemption_id TEXT)
 RETURNS JSONB AS $$
 DECLARE
   v_red RECORD;
@@ -187,7 +188,9 @@ BEGIN
     RAISE EXCEPTION 'Chỉ thầy cô hoặc ban phụ trách mới có quyền duyệt quà.';
   END IF;
 
-  SELECT * INTO v_red FROM public.redemptions WHERE id = p_redemption_id FOR UPDATE;
+  SELECT * INTO v_red FROM public.redemptions
+  WHERE id::text = p_redemption_id OR ma_nhan_qua = UPPER(TRIM(p_redemption_id))
+  FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Không tìm thấy đơn nhận quà.';
   END IF;
@@ -207,11 +210,11 @@ BEGIN
     trang_thai = 'completed',
     ngay_nhan = NOW(),
     nguoi_duyet = auth.uid()
-  WHERE id = p_redemption_id;
+  WHERE id = v_red.id;
 
   RETURN jsonb_build_object('success', true);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ------------------------------------------------------------------------------
 -- 5. HUY_DOI_QUA: Hủy đơn & hoàn Xu về ví học sinh, hoàn lại kho
