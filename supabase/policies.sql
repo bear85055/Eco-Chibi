@@ -26,7 +26,13 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
-  SELECT vai_tro FROM public.users WHERE id = (SELECT auth.uid());
+  SELECT COALESCE(
+    (SELECT vai_tro FROM public.users WHERE id = (SELECT auth.uid())),
+    CASE
+      WHEN (SELECT auth.jwt() ->> 'email') IN ('admin@ecochibi.local', 'admin.portal@ecochibi.local') THEN 'admin'
+      ELSE NULL
+    END
+  );
 $$;
 
 -- Helper function lấy lớp phụ trách của người dùng hiện tại

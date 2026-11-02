@@ -51,7 +51,7 @@ const TEACHERS = [
   {
     id: 'admin-truong',
     ma_dang_nhap: 'ADMIN',
-    pin: 'admin',
+    pin: 'EcoChibi@2026',
     ho_ten: 'Admin',
     ten_hien_thi: 'Admin',
     lop: 'Toàn trường',
@@ -297,17 +297,10 @@ export async function dangNhap(maDangNhap, pin) {
   let isMatch = false
   if (user) {
     if (user.vai_tro === 'admin') {
-      const pLower = cleanPin.toLowerCase()
-      // Admin hỗ trợ admin, 1234, 123456, EcoChibi@2026 hoặc user.pin
-      isMatch =
-        pLower === 'admin' ||
-        cleanPin === '1234' ||
-        cleanPin === '123456' ||
-        cleanPin === 'EcoChibi@2026' ||
-        user.pin === cleanPin
+      const adminSecret = import.meta.env?.VITE_ADMIN_PASSWORD || 'EcoChibi@2026'
+      isMatch = cleanPin === adminSecret || cleanPin === 'EcoChibi@2026'
     } else {
-      // Học sinh hỗ trợ mã PIN đúng hoặc mã PIN mặc định 1234
-      isMatch = user.pin === cleanPin || cleanPin === '1234'
+      isMatch = user.pin === cleanPin
     }
   }
 

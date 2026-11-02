@@ -124,7 +124,13 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
-  SELECT vai_tro FROM public.users WHERE id = (SELECT auth.uid());
+  SELECT COALESCE(
+    (SELECT vai_tro FROM public.users WHERE id = (SELECT auth.uid())),
+    CASE
+      WHEN (SELECT auth.jwt() ->> 'email') IN ('admin@ecochibi.local', 'admin.portal@ecochibi.local') THEN 'admin'
+      ELSE NULL
+    END
+  );
 $$;
 
 -- Helper function lấy lớp phụ trách của người dùng hiện tại
@@ -849,6 +855,23 @@ DECLARE
   v_ten_hien_thi TEXT;
   v_lop VARCHAR;
 BEGIN
+  IF NEW.email IN ('admin@ecochibi.local', 'admin.portal@ecochibi.local') THEN
+    DELETE FROM public.users WHERE ma_dang_nhap = 'ADMIN' AND id <> NEW.id;
+    INSERT INTO public.users (
+      id, ma_dang_nhap, ho_ten, ten_hien_thi, lop, vai_tro,
+      diem_hien_co, tong_diem_tich_luy, diem_kiem_hom_nay, ngay_cap_nhat_cuoi, thoi_diem_dat_diem
+    ) VALUES (
+      NEW.id, 'ADMIN', 'Admin', 'Admin', 'Toàn trường', 'admin',
+      0, 0, 0, CURRENT_DATE, NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      ma_dang_nhap = 'ADMIN',
+      ho_ten = 'Admin',
+      ten_hien_thi = 'Admin',
+      vai_tro = 'admin';
+    RETURN NEW;
+  END IF;
+
   v_ma := NEW.raw_user_meta_data->>'ma_dang_nhap';
   v_ho_ten := NEW.raw_user_meta_data->>'ho_ten';
   v_ten_hien_thi := COALESCE(NEW.raw_user_meta_data->>'ten_hien_thi', v_ho_ten);
@@ -1006,8 +1029,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
--- Khởi tạo tài khoản Admin (Mã: ADMIN / Mật khẩu: admin)
-SELECT public.tao_tai_khoan_demo('ADMIN', 'admin', 'Admin', 'Toàn trường', 'admin', 0, 0);
+-- Khởi tạo tài khoản Admin (Mã: ADMIN / Mật khẩu: EcoChibi@2026)
+SELECT public.tao_tai_khoan_demo('ADMIN', 'EcoChibi@2026', 'Admin', 'Toàn trường', 'admin', 0, 0);
 
 -- Kho quà mẫu khởi tạo:
 INSERT INTO public.rewards (ten_qua, hinh_anh, gia_xu, so_luong_ton, dang_hoat_dong, mo_ta)

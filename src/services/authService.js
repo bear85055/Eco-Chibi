@@ -29,6 +29,8 @@ export function formatUser(u) {
   }
 }
 
+const ADMIN_SECRET = import.meta.env?.VITE_ADMIN_PASSWORD || 'EcoChibi@2026'
+
 export async function dangNhap(ma, pin) {
   if (!supabase) {
     return mock.dangNhap(ma, pin)
@@ -36,6 +38,53 @@ export async function dangNhap(ma, pin) {
 
   const cleanMa = ma.trim().toLowerCase()
   const cleanPin = pin.trim()
+
+  if (cleanMa === 'admin') {
+    if (cleanPin !== ADMIN_SECRET) {
+      throw new Error('Mã đăng nhập hoặc mật khẩu Admin chưa chính xác.')
+    }
+
+    const adminEmail = 'admin.portal@ecochibi.local'
+    let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: adminEmail,
+      password: ADMIN_SECRET,
+    })
+
+    if (authError) {
+      const signUpRes = await supabase.auth.signUp({
+        email: adminEmail,
+        password: ADMIN_SECRET,
+      })
+      if (!signUpRes.error && signUpRes.data?.user) {
+        authData = signUpRes.data
+        authError = null
+      }
+    }
+
+    if (authError || !authData?.user) {
+      throw new Error(authError?.message || 'Đăng nhập Admin không thành công.')
+    }
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single()
+
+    return formatUser(
+      profile || {
+        id: authData.user.id,
+        ma_dang_nhap: 'ADMIN',
+        ho_ten: 'Admin',
+        ten_hien_thi: 'Admin',
+        lop: 'Toàn trường',
+        vai_tro: 'admin',
+        diem_hien_co: 0,
+        tong_diem_tich_luy: 0,
+      },
+    )
+  }
+
   const email = `${cleanMa}@ecochibi.local`
   const password = cleanPin.length >= 6 ? cleanPin : `eco-${cleanPin}`
 
@@ -145,7 +194,22 @@ export async function layThongTinToi() {
     .eq('id', authUser.id)
     .single()
 
-  return profile ? formatUser(profile) : null
+  if (profile) return formatUser(profile)
+
+  if (authUser.email === 'admin.portal@ecochibi.local' || authUser.email === 'admin@ecochibi.local') {
+    return formatUser({
+      id: authUser.id,
+      ma_dang_nhap: 'ADMIN',
+      ho_ten: 'Admin',
+      ten_hien_thi: 'Admin',
+      lop: 'Toàn trường',
+      vai_tro: 'admin',
+      diem_hien_co: 0,
+      tong_diem_tich_luy: 0,
+    })
+  }
+
+  return null
 }
 
 export function onAuthChange(callback) {

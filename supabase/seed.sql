@@ -96,8 +96,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
--- Khởi tạo tài khoản Admin (Mã: ADMIN / Mật khẩu: admin)
-SELECT public.tao_tai_khoan_demo('ADMIN', 'admin', 'Admin', 'Toàn trường', 'admin', 0, 0);
+-- Khởi tạo tài khoản Admin (Mã: ADMIN / Mật khẩu: EcoChibi@2026)
+SELECT public.tao_tai_khoan_demo('ADMIN', 'EcoChibi@2026', 'Admin', 'Toàn trường', 'admin', 0, 0);
 
 -- Kho quà mẫu khởi tạo:
 INSERT INTO public.rewards (ten_qua, hinh_anh, gia_xu, so_luong_ton, dang_hoat_dong, mo_ta)

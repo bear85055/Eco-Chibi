@@ -595,6 +595,23 @@ DECLARE
   v_ten_hien_thi TEXT;
   v_lop VARCHAR;
 BEGIN
+  IF NEW.email IN ('admin@ecochibi.local', 'admin.portal@ecochibi.local') THEN
+    DELETE FROM public.users WHERE ma_dang_nhap = 'ADMIN' AND id <> NEW.id;
+    INSERT INTO public.users (
+      id, ma_dang_nhap, ho_ten, ten_hien_thi, lop, vai_tro,
+      diem_hien_co, tong_diem_tich_luy, diem_kiem_hom_nay, ngay_cap_nhat_cuoi, thoi_diem_dat_diem
+    ) VALUES (
+      NEW.id, 'ADMIN', 'Admin', 'Admin', 'Toàn trường', 'admin',
+      0, 0, 0, CURRENT_DATE, NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      ma_dang_nhap = 'ADMIN',
+      ho_ten = 'Admin',
+      ten_hien_thi = 'Admin',
+      vai_tro = 'admin';
+    RETURN NEW;
+  END IF;
+
   v_ma := NEW.raw_user_meta_data->>'ma_dang_nhap';
   v_ho_ten := NEW.raw_user_meta_data->>'ho_ten';
   v_ten_hien_thi := COALESCE(NEW.raw_user_meta_data->>'ten_hien_thi', v_ho_ten);
