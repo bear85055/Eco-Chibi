@@ -19,7 +19,7 @@ const TIPS = [
 const GAMES = [
   { id: 'trash', to: '/choi/thung-rac', icon: '🗑️', ten: 'Thùng Rác Thông Thái', mo_ta: 'Kéo rác vào đúng thùng', tone: 'green' },
   { id: 'energy', to: '/choi/tiet-kiem', icon: '💡', ten: 'Biệt Đội Tiết Kiệm', mo_ta: 'Chạm nhanh tắt đèn, khóa nước', tone: 'sun' },
-  { id: 'quiz', to: '/choi/buoc-chan-xanh', icon: '👣', ten: 'Bước Chân Xanh', mo_ta: 'Nhiệm vụ & đố vui hằng ngày', tone: 'sky', daily: true },
+  { id: 'quiz', to: '/choi/buoc-chan-xanh', icon: '👣', ten: 'Bước Chân Xanh', mo_ta: 'Đi bộ đến trường, nhặt rác bỏ vào thùng', tone: 'sky' },
 ]
 
 function greeting() {
@@ -39,8 +39,6 @@ export default function Home() {
   const daDat = DAILY_CAP - (user.con_lai_hom_nay ?? 0)
   const nameParts = (user.ho_ten || '').trim().split(/\s+/)
   const ten = nameParts.length > 1 ? nameParts.slice(1).join(' ') : (user.ho_ten || user.ten_hien_thi || 'bạn nhỏ')
-  const nv = user.nhiem_vu_hom_nay || {}
-  const questDone = Number(Boolean(nv.tu_khai)) + Number(Boolean(nv.do_vui))
 
   useEffect(() => {
     if (!tip) return
@@ -118,13 +116,7 @@ export default function Home() {
                   <h3>{g.ten}</h3>
                   <p>{g.mo_ta}</p>
                 </div>
-                {g.daily && questDone === 2 ? (
-                  <span className="tag chip--green">✓ Xong hôm nay</span>
-                ) : g.daily ? (
-                  <span className="tag chip--sun">{questDone}/2 hôm nay</span>
-                ) : (
-                  <span className="game-card__play" aria-hidden="true">▶</span>
-                )}
+                <span className="game-card__play" aria-hidden="true">▶</span>
               </Link>
             ),
           )}

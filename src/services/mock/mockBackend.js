@@ -15,6 +15,7 @@ export const QUEST_REWARD = { tu_khai: 2, do_vui: 5 }
 const GAME_RULES = {
   trash_sorting: { maxCount: 60, minMs: 10_000, maxMs: 5 * 60_000 },
   save_energy: { maxCount: 80, minMs: 10_000, maxMs: 5 * 60_000 },
+  green_steps: { maxCount: 60, minMs: 10_000, maxMs: 5 * 60_000 },
 }
 
 export class ApiError extends Error {}
