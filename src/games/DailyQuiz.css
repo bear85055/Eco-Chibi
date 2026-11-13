@@ -1,475 +1,354 @@
 /* ==========================================================================
-   Bước Chân Xanh — Mini-game Đi bộ đến trường & Nhặt rác bỏ vào thùng
+   Bước Chân Xanh — Real-time 3-Lane Walk to School & Trash Pickup Game
    ========================================================================== */
 
-.gs-screen {
-  background: linear-gradient(180deg, #dcfce7 0%, #f0fdf4 55%, #ecfdf5 100%);
+.gs-play {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.gs-arena {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
   user-select: none;
+  background: linear-gradient(90deg, #4ade80 0%, #86efac 14%, #475569 14%, #334155 86%, #86efac 86%, #4ade80 100%);
 }
 
-.gs-accent {
-  color: #059669;
+/* Lề đường / Vỉa hè hai bên */
+.gs-curb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14%;
+  pointer-events: none;
+  z-index: 2;
 }
 
-/* ---------- Màn hình mở đầu (Intro) ---------- */
-.gs-intro-road {
+.gs-curb--left {
+  left: 0;
+  border-right: 6px solid #cbd5e1;
+  background: repeating-linear-gradient(
+    180deg,
+    #4ade80 0px,
+    #4ade80 48px,
+    #86efac 48px,
+    #86efac 96px
+  );
+}
+
+.gs-curb--right {
+  right: 0;
+  border-left: 6px solid #cbd5e1;
+  background: repeating-linear-gradient(
+    180deg,
+    #4ade80 0px,
+    #4ade80 48px,
+    #86efac 48px,
+    #86efac 96px
+  );
+}
+
+/* Mặt đường 3 làn ở giữa */
+.gs-road {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 14%;
+  right: 14%;
+  background: linear-gradient(180deg, #475569 0%, #334155 100%);
+  overflow: hidden;
+}
+
+.gs-lane-divider {
+  position: absolute;
+  top: -120px;
+  bottom: 0;
+  width: 5px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0px,
+    rgba(255, 255, 255, 0.55) 36px,
+    transparent 36px,
+    transparent 76px
+  );
+  pointer-events: none;
+}
+
+.gs-lane-divider--1 {
+  left: 33.33%;
+  transform: translateX(-50%);
+}
+
+.gs-lane-divider--2 {
+  left: 66.66%;
+  transform: translateX(-50%);
+}
+
+/* Vùng chạm chuyển làn trực tiếp */
+.gs-lane-touch {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 33.333%;
+  z-index: 4;
+  cursor: pointer;
+}
+
+/* Cảnh vật cây xanh hai bên vỉa hè */
+.gs-tree {
+  position: absolute;
+  z-index: 3;
+  font-size: 2.1rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.18));
+}
+
+/* Cổng trường xuất hiện khi về đích */
+.gs-school-gate {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  background: linear-gradient(180deg, #fef08a, #fde047);
+  border: 4px solid #ca8a04;
+  border-radius: 20px;
+  padding: 8px 22px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 58%, #86efac 58%, #4ade80 72%, #cbd5e1 72%, #94a3b8 100%);
-  border-radius: 22px;
-  padding: 22px 20px 18px;
-  margin: 10px 0 14px;
-  position: relative;
-  overflow: hidden;
-  border: 3px solid #a7f3d0;
-  box-shadow: 0 8px 20px rgba(5, 150, 105, 0.12);
+  gap: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
-.gs-intro-Node {
+.gs-school-gate__icon {
+  font-size: 2.4rem;
+}
+
+.gs-school-gate__text {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: #854d0e;
+}
+
+/* Vật phẩm trên đường: Rác, Thùng rác, Vũng nước */
+.gs-obj {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  pointer-events: none;
+}
+
+.gs-obj--trash {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  border: 3px solid #34d399;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.gs-obj__icon {
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.gs-obj__tag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #065f46;
+  margin-top: 1px;
+}
+
+.gs-obj--bin {
+  width: 74px;
+  height: 78px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #10b981, #059669);
+  border: 3.5px solid #a7f3d0;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.gs-obj--bin.is-glowing {
+  animation: gsBinPulse 0.55s ease-in-out infinite alternate;
+  box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.4), 0 8px 20px rgba(16, 185, 129, 0.5);
+}
+
+.gs-obj--bin .gs-obj__icon {
+  font-size: 2.1rem;
+}
+
+.gs-obj--bin .gs-obj__tag {
+  color: #ecfdf5;
+  font-size: 0.66rem;
+  font-weight: 900;
+  background: rgba(6, 78, 59, 0.65);
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-top: 2px;
+}
+
+.gs-obj--puddle {
+  width: 68px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #38bdf8 0%, #0284c7 85%);
+  border: 2.5px solid #bae6fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+}
+
+/* Nhân vật Chibi đi học */
+.gs-player {
+  position: absolute;
+  bottom: 112px;
+  transform: translateX(-50%);
+  transition: left 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.gs-player__bag-pill {
+  background: #ffffff;
+  color: #065f46;
+  border: 2.5px solid #10b981;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+  display: flex;
   align-items: center;
   gap: 4px;
-  z-index: 2;
 }
 
-.gs-intro-Node__icon {
-  font-size: 2.5rem;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
-}
-
-.gs-intro-Node__label {
-  font-size: 0.78rem;
-  font-weight: 800;
-  background: rgba(255, 255, 255, 0.92);
-  color: #065f46;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-
-.gs-intro-walker {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 2;
-  animation: gsBob 0.8s ease-in-out infinite alternate;
-}
-
-/* ---------- Thanh hành trình từ Nhà đến Trường ---------- */
-.gs-journey {
-  background: #ffffff;
-  border: 2px solid #bbf7d0;
-  border-radius: 18px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
-}
-
-.gs-journey__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.85rem;
-  font-weight: 800;
-  color: #065f46;
-  margin-bottom: 8px;
-}
-
-.gs-journey__bar {
-  position: relative;
-  height: 14px;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: visible;
-}
-
-.gs-journey__fill {
-  height: 100%;
-  background: linear-gradient(90deg, #34d399, #10b981);
-  border-radius: 999px;
-  transition: width 0.35s ease;
-}
-
-.gs-journey__pin {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -58%);
-  font-size: 1.35rem;
-  transition: left 0.35s ease;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-}
-
-/* ---------- Khung cảnh đường phố (Street Scene) ---------- */
-.gs-stage {
-  position: relative;
-  width: 100%;
-  height: 320px;
-  border-radius: 24px;
-  overflow: hidden;
-  border: 3px solid #86efac;
-  box-shadow: 0 10px 28px rgba(5, 150, 105, 0.15);
-  background: linear-gradient(
-    180deg,
-    #7dd3fc 0%,
-    #bae6fd 42%,
-    #86efac 42%,
-    #4ade80 60%,
-    #e2e8f0 60%,
-    #cbd5e1 66%,
-    #64748b 66%,
-    #475569 100%
-  );
-}
-
-/* Bầu trời & mây */
-.gs-sun {
-  position: absolute;
-  top: 16px;
-  right: 22px;
-  font-size: 2.2rem;
-  animation: gsPulse 3s ease-in-out infinite alternate;
-}
-
-.gs-cloud {
-  position: absolute;
-  font-size: 1.8rem;
-  opacity: 0.85;
-}
-.gs-cloud--1 {
-  top: 18px;
-  left: 14%;
-}
-.gs-cloud--2 {
-  top: 34px;
-  left: 55%;
-}
-
-/* Cảnh vật bên đường (Cây cối, nhà, trường học) */
-.gs-scenery {
-  position: absolute;
-  top: 22%;
-  left: 0;
-  right: 0;
-  height: 38%;
-  pointer-events: none;
-}
-
-.gs-prop {
-  position: absolute;
-  bottom: 10px;
-  transform: translateX(-50%);
-  transition: left 0.12s linear;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.gs-prop__emoji {
-  font-size: 2.8rem;
-  line-height: 1;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.12));
-}
-
-.gs-prop__tag {
-  font-size: 0.7rem;
-  font-weight: 800;
-  background: rgba(255, 255, 255, 0.9);
-  color: #065f46;
-  padding: 2px 7px;
-  border-radius: 8px;
-  margin-top: 2px;
-  white-space: nowrap;
-}
-
-/* Vạch kẻ đường */
-.gs-road-lines {
-  position: absolute;
-  bottom: 14%;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.85) 0px,
-    rgba(255, 255, 255, 0.85) 28px,
-    transparent 28px,
-    transparent 56px
-  );
-  transition: background-position 0.12s linear;
-}
-
-/* Nhân vật đi bộ */
-.gs-hero {
-  position: absolute;
-  bottom: 12%;
-  left: 20%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 5;
-}
-
-.gs-hero.is-walking .gs-hero__body {
-  animation: gsWalk 0.32s ease-in-out infinite alternate;
-}
-
-.gs-hero__bubble {
-  background: #ffffff;
-  color: #065f46;
-  font-size: 0.8rem;
-  font-weight: 800;
-  padding: 5px 10px;
-  border-radius: 14px;
-  border: 2px solid #34d399;
-  margin-bottom: 6px;
-  white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  animation: gsPop 0.25s ease-out;
-}
-
-.gs-hero__body {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.gs-hero__kid {
-  font-size: 3.3rem;
-  line-height: 1;
-  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.22));
-}
-
-.gs-hero__held {
-  position: absolute;
-  top: -12px;
-  right: -18px;
-  font-size: 2rem;
-  background: #fef9c3;
-  border: 2px solid #facc15;
-  border-radius: 50%;
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
-  animation: gsBob 0.5s ease-in-out infinite alternate;
-}
-
-/* Món rác trên đường */
-.gs-trash-spot {
-  position: absolute;
-  bottom: 11%;
-  left: 52%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  z-index: 6;
-  padding: 6px;
-}
-
-.gs-trash-spot__hint {
+.gs-player__bag-pill.is-full {
   background: #fef08a;
   color: #854d0e;
-  font-size: 0.76rem;
-  font-weight: 900;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 2px solid #facc15;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  animation: gsBob 0.55s ease-in-out infinite alternate;
+  border-color: #eab308;
+  animation: gsBinPulse 0.5s ease-in-out infinite alternate;
 }
 
-.gs-trash-spot__icon {
-  font-size: 2.7rem;
-  width: 62px;
-  height: 62px;
+.gs-player__avatar {
+  position: relative;
+  animation: gsStepBob 0.28s ease-in-out infinite alternate;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.35));
+}
+
+.gs-player__backpack {
+  position: absolute;
+  bottom: -2px;
+  right: -8px;
+  font-size: 1.55rem;
+  background: #fff;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  border: 3px dashed #f59e0b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
-  transition: transform 0.15s ease;
-}
-
-.gs-trash-spot:hover .gs-trash-spot__icon,
-.gs-trash-spot:active .gs-trash-spot__icon {
-  transform: scale(1.12);
-  background: #fef3c7;
-}
-
-.gs-trash-spot__name {
-  margin-top: 4px;
-  font-size: 0.76rem;
-  font-weight: 800;
-  color: #ffffff;
-  background: rgba(15, 23, 42, 0.75);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-/* Thùng rác bên vệ đường */
-.gs-bin-spot {
-  position: absolute;
-  bottom: 14%;
-  left: 80%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  z-index: 6;
-  padding: 6px;
-}
-
-.gs-bin-spot__hint {
-  background: #bbf7d0;
-  color: #065f46;
-  font-size: 0.76rem;
-  font-weight: 900;
-  padding: 3px 9px;
-  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
   border: 2px solid #10b981;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  animation: gsBob 0.55s ease-in-out infinite alternate;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-.gs-bin-spot__box {
-  width: 66px;
-  height: 66px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ecfdf5, #d1fae5);
-  border: 3px solid #10b981;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.3rem;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.gs-bin-spot.is-ready .gs-bin-spot__box {
-  border-color: #059669;
-  background: #a7f3d0;
-  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.3);
-  transform: scale(1.08);
-}
-
-.gs-bin-spot__label {
-  margin-top: 4px;
-  font-size: 0.74rem;
-  font-weight: 800;
-  color: #ffffff;
-  background: rgba(6, 95, 70, 0.88);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-/* Hiệu ứng cộng điểm bay lên */
-.gs-floating-score {
+/* Thanh nút điều khiển Trái / Giữa / Phải ở đáy màn hình */
+.gs-bottom-bar {
   position: absolute;
-  bottom: 48%;
-  left: 76%;
-  transform: translateX(-50%);
-  background: #10b981;
-  color: #fff;
+  left: 14px;
+  right: 14px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 12;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 8px;
+}
+
+.gs-steer-btn {
+  height: 52px;
+  border-radius: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.92);
+  color: #065f46;
+  font-family: var(--font-display);
   font-weight: 900;
   font-size: 0.95rem;
-  padding: 5px 12px;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
-  animation: gsFloatUp 0.9s ease-out forwards;
-  z-index: 10;
-  pointer-events: none;
-}
-
-/* Khu vực bảng điều khiển bên dưới */
-.gs-controls {
-  margin-top: 14px;
-  background: #ffffff;
-  border: 2px solid #bbf7d0;
-  border-radius: 20px;
-  padding: 14px 16px;
-  text-align: center;
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.08);
-}
-
-.gs-controls__status {
-  font-size: 0.96rem;
-  font-weight: 800;
-  color: #065f46;
-  margin-bottom: 10px;
-}
-
-.gs-controls__btns {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
   display: flex;
-  gap: 10px;
+  align-items: center;
   justify-content: center;
+  gap: 6px;
+  transition: transform 0.1s, background 0.15s;
 }
 
-@keyframes gsWalk {
+.gs-steer-btn:active {
+  transform: scale(0.95);
+}
+
+.gs-steer-btn.is-active {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #a7f3d0;
+}
+
+.gs-dump-btn {
+  height: 52px;
+  border-radius: 16px;
+  border: 2.5px solid #fde047;
+  background: linear-gradient(180deg, #facc15, #eab308);
+  color: #422006;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 0.92rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.gs-dump-btn:disabled {
+  background: rgba(255, 255, 255, 0.78);
+  color: #475569;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+@keyframes gsStepBob {
   from {
     transform: translateY(0px) rotate(-3deg);
   }
   to {
-    transform: translateY(-7px) rotate(3deg);
+    transform: translateY(-6px) rotate(3deg);
   }
 }
 
-@keyframes gsBob {
+@keyframes gsBinPulse {
   from {
-    transform: translateY(0px);
+    transform: translate(-50%, -50%) scale(1);
   }
   to {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes gsPulse {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.08);
-  }
-}
-
-@keyframes gsPop {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes gsFloatUp {
-  0% {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(0.9);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -38px) scale(1.1);
+    transform: translate(-50%, -50%) scale(1.08);
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import { batDauGame, nopKetQuaGame, MAX_REWARD_PER_ROUND } from '../services/gameService'
@@ -10,38 +10,47 @@ import './TrashSorting.css'
 import './SaveEnergy.css'
 import './DailyQuiz.css'
 
-const TOTAL_STOPS = 10
+const GAME_SECONDS = 35
+const PLAYER_Y_PCT = 76 // Vị trí Y cố định của nhân vật (%)
+const LANE_CENTERS = [16.66, 50, 83.33] // % trong lòng đường (.gs-road)
 
-const TRASH_POOL = [
-  { icon: '🥤', ten: 'Ly nhựa dùng 1 lần', khen: 'Bớt 1 chiếc ly nhựa trên vỉa hè rồi!' },
-  { icon: '🍌', ten: 'Vỏ chuối rơi', khen: 'Nhặt vỏ chuối giúp không ai bị trượt ngã!' },
-  { icon: '🥫', ten: 'Vỏ lon nước ngọt', khen: 'Lon nhôm này đem tái chế được đó!' },
-  { icon: '🛍️', ten: 'Túi nilon bay', khen: 'Không để túi nilon làm tắc cống thoát nước!' },
-  { icon: '📦', ten: 'Hộp sữa giấy', khen: 'Đường đến trường sạch bong kin kít!' },
-  { icon: '📰', ten: 'Giấy vụn rơi', khen: 'Giữ gìn vỉa hè xanh - sạch - đẹp!' },
-  { icon: '🍎', ten: 'Lõi táo thừa', khen: 'Bỏ rác hữu cơ đúng nơi quy định!' },
-  { icon: '🍂', ten: 'Cành lá khô', khen: 'Con đường rợp bóng cây và sạch sẽ!' },
-  { icon: '🧴', ten: 'Chai nhựa rỗng', khen: 'Chai nhựa đã vào thùng gọn gàng!' },
-  { icon: '🥡', ten: 'Hộp xốp bỏ quên', khen: 'Tuyệt vời! Sắp tới cổng trường rồi!' },
+const TRASH_TYPES = [
+  { icon: '🍌', ten: 'Vỏ chuối' },
+  { icon: '🥤', ten: 'Ly nhựa' },
+  { icon: '🥫', ten: 'Vỏ lon' },
+  { icon: '🛍️', ten: 'Túi nilon' },
+  { icon: '📦', ten: 'Hộp sữa' },
+  { icon: '📰', ten: 'Giấy vụn' },
+  { icon: '🍎', ten: 'Lõi táo' },
+  { icon: '🧴', ten: 'Chai nhựa' },
 ]
 
-const SCENERY_PROPS = [
-  { at: 2, emoji: '🏡', tag: 'Nhà của em' },
-  { at: 16, emoji: '🌳', tag: '' },
-  { at: 30, emoji: '🏪', tag: 'Tiệm tạp hóa' },
-  { at: 45, emoji: '🌲', tag: '' },
-  { at: 60, emoji: '🚏', tag: 'Trạm xe buýt' },
-  { at: 76, emoji: '🌺', tag: 'Công viên' },
-  { at: 96, emoji: '🏫', tag: 'Trường Học Xanh' },
-]
+const TREE_ICONS = ['🌳', '🌲', '🌺', '🌻', '🏡', '🏪', '🚏']
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
 
-function buildStops() {
-  const shuffled = [...TRASH_POOL].sort(() => Math.random() - 0.5)
-  return Array.from({ length: TOTAL_STOPS }, (_, idx) => ({
-    index: idx,
-    distance: Math.round(((idx + 1) / (TOTAL_STOPS + 1)) * 90) + 4,
-    item: shuffled[idx % shuffled.length],
-  }))
+function createInitialState() {
+  return {
+    lane: 1, // 0: Trái, 1: Giữa, 2: Phải
+    holding: [], // Danh sách icon rác đang cầm trên tay
+    score: 0, // Tổng số rác đã bỏ vào thùng rác
+    pickedTotal: 0,
+    slipped: 0,
+    elapsed: 0,
+    roadOffset: 0,
+    spawnTimer: 400,
+    binTimer: 2200,
+    treeTimer: 0,
+    nextId: 1,
+    objects: [], // { id, kind: 'trash' | 'bin' | 'puddle', lane, y, icon, ten, hit }
+    trees: [
+      { id: -1, side: 'left', y: 18, icon: '🏡' },
+      { id: -2, side: 'right', y: 38, icon: '🌳' },
+      { id: -3, side: 'left', y: 62, icon: '🌲' },
+      { id: -4, side: 'right', y: 82, icon: '🌺' },
+    ],
+    floaters: [],
+    particles: [],
+  }
 }
 
 export default function DailyQuiz() {
@@ -49,419 +58,650 @@ export default function DailyQuiz() {
   const { user, setUser } = usePlayer()
 
   const [phase, setPhase] = useState('intro') // intro | playing | submitting | result
-  const [stepState, setStepState] = useState('walking') // walking | found_trash | holding_trash | cleaned | arriving
-  const [stops, setStops] = useState(() => buildStops())
-  const [currentIdx, setCurrentIdx] = useState(0)
-  const [distance, setDistance] = useState(0) // 0 -> 100%
-  const [cleanedCount, setCleanedCount] = useState(0)
-  const [bubble, setBubble] = useState('Cùng đi bộ đến trường nào! 🎒')
-  const [floatFx, setFloatFx] = useState(null)
+  const [timeLeft, setTimeLeft] = useState(GAME_SECONDS)
   const [result, setResult] = useState(null)
   const [startError, setStartError] = useState('')
+  const [, force] = useReducer((x) => x + 1, 0)
 
+  const gameRef = useRef(createInitialState())
   const sessionRef = useRef(null)
-  const startedAtRef = useRef(0)
-  const cleanedRef = useRef(0)
+  const touchStartXRef = useRef(null)
 
-  const startGame = async () => {
+  const start = async () => {
     setStartError('')
     try {
       const s = await batDauGame('trash_sorting')
       sessionRef.current = s.id
-      startedAtRef.current = Date.now()
-      cleanedRef.current = 0
-      const newStops = buildStops()
-      setStops(newStops)
-      setCurrentIdx(0)
-      setDistance(0)
-      setCleanedCount(0)
+      gameRef.current = createInitialState()
       setResult(null)
-      setBubble('Khởi hành từ nhà đến trường thôi! 👣')
-      setStepState('walking')
+      setTimeLeft(GAME_SECONDS)
       setPhase('playing')
     } catch (e) {
       setStartError(e.message)
     }
   }
 
-  const finishGame = async (finalScore) => {
+  const finish = async () => {
     setPhase('submitting')
-    setBubble('Đã tới cổng trường rồi! Chào thầy cô ạ! 🏫')
+    const st = gameRef.current
+    // Nếu về tới cổng trường mà trên tay vẫn cầm rác, cho bỏ nốt vào thùng rác cổng trường!
+    const finalScore = st.score + st.holding.length
+    const stats = {
+      score: finalScore,
+      pickedTotal: st.pickedTotal,
+      slipped: st.slipped,
+    }
     try {
-      // Đảm bảo thời gian hành trình tối thiểu 10.5s để hợp lệ bộ lọc server
-      const elapsed = Date.now() - startedAtRef.current
-      if (elapsed < 10_500) {
-        await new Promise((r) => setTimeout(r, 10_500 - elapsed))
-      }
       const res = await nopKetQuaGame(sessionRef.current, finalScore)
       setUser(res.user)
-      setResult({ ...res, score: finalScore })
+      setResult({ ...res, ...stats })
       if (res.earned > 0) sfx.win()
     } catch (e) {
-      setResult({ error: e.message, earned: 0, score: finalScore })
+      setResult({ error: e.message, earned: 0, ...stats })
     }
     setPhase('result')
   }
 
-  // Hiệu ứng nhân vật tự bước đi đến điểm có rác tiếp theo
+  // Đếm ngược thời gian đi học
   useEffect(() => {
-    if (phase !== 'playing' || stepState !== 'walking') return
+    if (phase !== 'playing') return
+    const id = setInterval(() => setTimeLeft((t) => t - 1), 1000)
+    return () => clearInterval(id)
+  }, [phase])
 
-    const targetStop = stops[currentIdx]
-    const targetDist = targetStop ? targetStop.distance : 100
-
-    const timer = setInterval(() => {
-      setDistance((prev) => {
-        const next = prev + 1.8
-        if (next >= targetDist) {
-          clearInterval(timer)
-          if (targetStop) {
-            setStepState('found_trash')
-            setBubble(`Ơ kìa! Có ${targetStop.item.ten} rơi trên đường!`)
-          } else {
-            setStepState('arriving')
-            finishGame(cleanedRef.current)
-          }
-          return targetDist
-        }
-        return next
-      })
-    }, 65)
-
-    return () => clearInterval(timer)
+  useEffect(() => {
+    if (phase === 'playing' && timeLeft <= 0) finish()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, stepState, currentIdx, stops])
+  }, [timeLeft, phase])
 
-  const handlePickUpTrash = () => {
-    if (stepState !== 'found_trash') return
-    sfx.tap()
-    const cur = stops[currentIdx]
-    setStepState('holding_trash')
-    setBubble(`Đã nhặt ${cur.item.ten}! Bỏ vào thùng rác bên cạnh nhé! 🗑️`)
-  }
-
-  const handlePutInBin = () => {
-    if (stepState !== 'holding_trash') return
-    sfx.correct()
-    const cur = stops[currentIdx]
-    const nextScore = cleanedRef.current + 1
-    cleanedRef.current = nextScore
-    setCleanedCount(nextScore)
-    setStepState('cleaned')
-    setBubble(`🌟 ${cur.item.khen}`)
-    setFloatFx({ id: Date.now(), text: '+1 Điểm Xanh ⭐' })
-
-    setTimeout(() => {
-      setFloatFx(null)
-      if (currentIdx + 1 < stops.length) {
-        setCurrentIdx((i) => i + 1)
-        setStepState('walking')
-        setBubble('Đường sạch rồi, mình đi tiếp tới trường thôi! 👣')
-      } else {
-        setCurrentIdx(stops.length)
-        setStepState('walking')
-        setBubble('Cổng trường ngay phía trước rồi! 🏫')
+  // Điều khiển bằng bàn phím (← / → / A / D / Space)
+  useEffect(() => {
+    if (phase !== 'playing') return
+    const onKeyDown = (e) => {
+      const st = gameRef.current
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault()
+        if (st.lane > 0) {
+          st.lane--
+          sfx.tap()
+          force()
+        }
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault()
+        if (st.lane < 2) {
+          st.lane++
+          sfx.tap()
+          force()
+        }
+      } else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault()
+        dumpToNearbyBin()
       }
-    }, 850)
-  }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
-  const handleSkipTrash = () => {
-    if (stepState !== 'found_trash' && stepState !== 'holding_trash') return
-    sfx.tap()
-    if (currentIdx + 1 < stops.length) {
-      setCurrentIdx((i) => i + 1)
-      setStepState('walking')
-      setBubble('Đi tiếp về phía trường nào! 👣')
-    } else {
-      setCurrentIdx(stops.length)
-      setStepState('walking')
+  const spawnBurst = (st, xPct, yPct, now, good = true) => {
+    const icons = good ? ['✨', '⭐', '🍃', '🌟'] : ['💦', '💨']
+    const count = good ? 7 : 4
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3
+      const dist = 28 + Math.random() * 32
+      st.particles.push({
+        id: now + Math.random(),
+        xPct,
+        yPct,
+        vx: Math.cos(angle) * dist,
+        vy: Math.sin(angle) * dist - 20,
+        icon: icons[i % icons.length],
+        at: now,
+        ttl: 550,
+      })
     }
   }
 
-  const activeStop = stops[currentIdx]
+  // Ném rác đang cầm vào thùng rác gần nhất trên đường
+  const dumpToNearbyBin = (targetBin = null) => {
+    const st = gameRef.current
+    if (st.holding.length === 0) return false
+    const now = performance.now()
+    const bin =
+      targetBin ||
+      st.objects.find((o) => o.kind === 'bin' && !o.hit && o.y >= 15 && o.y <= 92)
+    if (!bin) return false
+
+    const count = st.holding.length
+    st.holding = []
+    st.score += count
+    bin.hit = true
+    const xPct = 14 + (LANE_CENTERS[bin.lane] * 0.72)
+    spawnBurst(st, xPct, bin.y, now, true)
+    st.floaters.push({
+      id: now + Math.random(),
+      xPct,
+      yPct: bin.y - 6,
+      text: count >= 2 ? `Bỏ thùng +${count} 🔥` : 'Bỏ thùng +1 🗑️',
+      ok: true,
+      at: now,
+    })
+    sfx.correct()
+    force()
+    return true
+  }
+
+  // Vòng lặp 60fps: cuộn đường, sinh rác & thùng rác, kiểm tra va chạm
+  useEffect(() => {
+    if (phase !== 'playing') return
+    let raf
+    let last = performance.now()
+
+    const loop = (now) => {
+      const dt = Math.min(64, now - last)
+      last = now
+      const st = gameRef.current
+      st.elapsed += dt
+      const progress = Math.min(1, st.elapsed / (GAME_SECONDS * 1000))
+      const speedPctPerSec = 28 + 12 * progress // tốc độ cuộn (% chiều cao màn hình / giây)
+
+      st.roadOffset = (st.roadOffset + (speedPctPerSec * dt) / 1000 * 5) % 76
+
+      // Sinh cảnh vật cây cối 2 bên vỉa hè
+      st.treeTimer += dt
+      if (st.treeTimer >= 950) {
+        st.treeTimer = 0
+        st.trees.push({
+          id: st.nextId++,
+          side: Math.random() < 0.5 ? 'left' : 'right',
+          y: -8,
+          icon: pick(TREE_ICONS),
+        })
+      }
+      for (const tr of st.trees) {
+        tr.y += (speedPctPerSec * dt) / 1000
+      }
+      st.trees = st.trees.filter((tr) => tr.y < 108)
+
+      // Sinh rác hoặc vũng nước trên 3 làn đường
+      st.spawnTimer += dt
+      if (st.spawnTimer >= 1150 - 250 * progress && timeLeft > 2) {
+        st.spawnTimer = 0
+        const lane = Math.floor(Math.random() * 3)
+        const busyLane = st.objects.some((o) => o.lane === lane && o.y < 18)
+        if (!busyLane) {
+          if (Math.random() < 0.22 && st.elapsed > 4000) {
+            st.objects.push({
+              id: st.nextId++,
+              kind: 'puddle',
+              lane,
+              y: -8,
+              icon: '💦',
+              ten: 'Vũng nước',
+              hit: false,
+            })
+          } else {
+            const item = pick(TRASH_TYPES)
+            st.objects.push({
+              id: st.nextId++,
+              kind: 'trash',
+              lane,
+              y: -8,
+              icon: item.icon,
+              ten: item.ten,
+              hit: false,
+            })
+          }
+        }
+      }
+
+      // Sinh Thùng Rác Xanh bên đường định kỳ để học sinh ghé bỏ rác vào
+      st.binTimer += dt
+      if (st.binTimer >= 3100) {
+        st.binTimer = 0
+        const candidateLanes = [0, 1, 2].filter(
+          (l) => !st.objects.some((o) => o.lane === l && o.y < 22),
+        )
+        if (candidateLanes.length > 0) {
+          const lane = pick(candidateLanes)
+          st.objects.push({
+            id: st.nextId++,
+            kind: 'bin',
+            lane,
+            y: -10,
+            icon: '🗑️',
+            ten: 'Thùng Rác',
+            hit: false,
+          })
+        }
+      }
+
+      // Cập nhật vị trí vật phẩm & kiểm tra khi nhân vật bước qua
+      for (const obj of st.objects) {
+        obj.y += (speedPctPerSec * dt) / 1000
+
+        if (!obj.hit && obj.lane === st.lane && Math.abs(obj.y - PLAYER_Y_PCT) < 7.5) {
+          const xPct = 14 + (LANE_CENTERS[obj.lane] * 0.72)
+          if (obj.kind === 'trash') {
+            obj.hit = true
+            st.holding.push(obj.icon)
+            st.pickedTotal++
+            st.floaters.push({
+              id: now + Math.random(),
+              xPct,
+              yPct: PLAYER_Y_PCT - 8,
+              text: `Nhặt ${obj.icon}`,
+              ok: true,
+              at: now,
+            })
+            sfx.tap()
+          } else if (obj.kind === 'bin') {
+            if (st.holding.length > 0) {
+              dumpToNearbyBin(obj)
+            } else {
+              obj.hit = true
+              st.floaters.push({
+                id: now + Math.random(),
+                xPct,
+                yPct: PLAYER_Y_PCT - 8,
+                text: 'Nhặt rác trước nhé! 🖐️',
+                ok: true,
+                at: now,
+              })
+            }
+          } else if (obj.kind === 'puddle') {
+            obj.hit = true
+            st.slipped++
+            spawnBurst(st, xPct, PLAYER_Y_PCT, now, false)
+            if (st.holding.length > 0) {
+              st.holding.pop()
+              st.floaters.push({
+                id: now + Math.random(),
+                xPct,
+                yPct: PLAYER_Y_PCT - 8,
+                text: 'Trượt chân! Rơi 1 rác 💦',
+                ok: false,
+                at: now,
+              })
+            } else {
+              st.floaters.push({
+                id: now + Math.random(),
+                xPct,
+                yPct: PLAYER_Y_PCT - 8,
+                text: 'Cẩn thận vũng nước! 💦',
+                ok: false,
+                at: now,
+              })
+            }
+            sfx.wrong()
+          }
+        }
+      }
+
+      st.objects = st.objects.filter((o) => (!o.hit || o.kind === 'bin') && o.y < 108)
+      st.floaters = st.floaters.filter((f) => now - f.at < 850)
+      st.particles = st.particles.filter((p) => now - p.at < p.ttl)
+
+      force()
+      raf = requestAnimationFrame(loop)
+    }
+
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
+  const setLane = (targetLane) => {
+    const st = gameRef.current
+    if (st.lane !== targetLane) {
+      st.lane = targetLane
+      sfx.tap()
+      force()
+    }
+  }
+
+  const exit = () => {
+    if (phase === 'playing' && !window.confirm('Thoát bây giờ thì chuyến đi này sẽ không được tính điểm. Em chắc chứ?')) return
+    navigate('/')
+  }
+
+  // ---------- Màn hình giới thiệu ----------
+  if (phase === 'intro') {
+    return (
+      <main className="ts-screen ts-intro">
+        <button className="ts-close" onClick={exit} aria-label="Về khu vườn" id="game-exit">
+          ✕
+        </button>
+        <h1 className="ts-title">
+          Bước Chân <span>Xanh</span>
+        </h1>
+        <p className="ts-sub">
+          Đi bộ từ <b>Nhà 🏡 đến Trường 🏫</b>, chuyển làn nhặt rác trên đường và ghé vào <b>Thùng Rác 🗑️</b> để bỏ rác vào thùng nhé!
+        </p>
+
+        <ul className="se-rules">
+          <li className="se-rule is-good">
+            <span>🖐️</span>
+            <div>
+              <b>Bước qua Rác để nhặt lên tay</b>
+              <small>Chạm vào làn đường (Trái / Giữa / Phải) để di chuyển nhặt rác</small>
+            </div>
+          </li>
+          <li className="se-rule is-good">
+            <span>🗑️</span>
+            <div>
+              <b>Ghé vào Thùng Rác Xanh ven đường</b>
+              <small>Bước vào làn có Thùng Rác (hoặc chạm vào Thùng Rác) để bỏ hết rác trên tay vào thùng và ghi điểm!</small>
+            </div>
+          </li>
+          <li className="se-rule is-bad">
+            <span>💦</span>
+            <div>
+              <b>Né các vũng nước trên đường</b>
+              <small>Dẫm vào vũng nước sẽ bị trượt chân làm rơi mất rác đang cầm</small>
+            </div>
+          </li>
+        </ul>
+
+        <div className="ts-rules">
+          <span>⏱ {GAME_SECONDS} giây tới trường</span>
+          <span>⭐ Tối đa {MAX_REWARD_PER_ROUND} điểm/lượt</span>
+          <span>☀️ Hôm nay còn {user.con_lai_hom_nay} điểm</span>
+        </div>
+
+        {startError && <p className="ts-warn">{startError}</p>}
+        <button className="btn btn--primary btn--lg ts-start" onClick={start} id="game-start">
+          ▶ Bắt đầu đi học! 🎒
+        </button>
+      </main>
+    )
+  }
+
+  // ---------- Màn hình kết quả ----------
+  if (phase === 'submitting' || phase === 'result') {
+    const r = result
+    return (
+      <main className="ts-screen ts-result">
+        {r && r.earned > 0 && <Confetti count={60} />}
+        {phase === 'submitting' || !r ? (
+          <div className="screen-center">
+            <div className="spinner" />
+            <p>Đã tới cổng trường! Đang tổng kết điểm…</p>
+          </div>
+        ) : (
+          <>
+            {r.levelUp ? (
+              <div className="levelup">
+                <p className="levelup__label">✨ Chibi đã tiến hóa! ✨</p>
+                <ChibiAvatar xp={user.tong_diem_tich_luy} size={150} celebrate />
+                <p className="levelup__name">{getLevel(user.tong_diem_tich_luy).ten}</p>
+              </div>
+            ) : (
+              <ChibiAvatar xp={user.tong_diem_tich_luy} size={130} />
+            )}
+
+            <h1 className="ts-title">
+              {r.score >= 8
+                ? 'Đường Đến Trường Sạch Bóng! 🏫'
+                : r.score >= 4
+                  ? 'Hành Trình Xanh Tuyệt Vời! 🌱'
+                  : 'Đã Tới Trường Học! 🎒'}
+            </h1>
+            <p className="ts-sub">
+              Em đã nhặt và bỏ vào thùng <b>{r.score}</b> món rác trên đường đi học!
+            </p>
+
+            {r.error ? (
+              <p className="ts-warn">{r.error}</p>
+            ) : (
+              <div className="ts-reward">
+                <div className="ts-reward__chip">⭐ +{r.earned} XP</div>
+                <div className="ts-reward__chip ts-reward__chip--coin">🍃 +{r.earned} Xu</div>
+              </div>
+            )}
+
+            {r.dailyCapped && (
+              <p className="ts-hint">Hôm nay em đã đạt giới hạn 30 điểm/ngày rồi! 🌙</p>
+            )}
+
+            <div className="ts-actions">
+              <button className="btn btn--ghost" onClick={() => navigate('/')} id="game-home">
+                🏡 Về khu vườn
+              </button>
+              <button className="btn btn--primary" onClick={start} id="game-replay">
+                🔄 Đi học lại
+              </button>
+            </div>
+          </>
+        )}
+      </main>
+    )
+  }
+
+  // ---------- Màn hình đang chơi (60fps Real-Time Street Runner) ----------
+  const st = gameRef.current
+  // eslint-disable-next-line react-hooks/purity
+  const now = performance.now()
+  const walkPct = Math.min(100, Math.round(((GAME_SECONDS - timeLeft) / GAME_SECONDS) * 100))
+  const hasNearbyBin = st.objects.some((o) => o.kind === 'bin' && !o.hit && o.y >= 15 && o.y <= 92)
 
   return (
-    <main className="ts-screen gs-screen">
-      <button className="ts-close" onClick={() => navigate('/')} aria-label="Về khu vườn" id="game-exit">
-        ✕
-      </button>
-
-      {/* ============ MÀN HÌNH GIỚI THIỆU ============ */}
-      {phase === 'intro' && (
-        <section className="ts-box">
-          <div className="gs-intro-road" aria-hidden="true">
-            <div className="gs-intro-Node">
-              <span className="gs-intro-Node__icon">🏡</span>
-              <span className="gs-intro-Node__label">Nhà em</span>
-            </div>
-            <div className="gs-intro-walker">
-              <span style={{ fontSize: '2.5rem' }}>🎒</span>
-              <span style={{ fontSize: '1.8rem' }}>🗑️</span>
-            </div>
-            <div className="gs-intro-Node">
-              <span className="gs-intro-Node__icon">🏫</span>
-              <span className="gs-intro-Node__label">Trường học</span>
-            </div>
-          </div>
-
-          <h1 className="ts-title">
-            Bước Chân <span className="gs-accent">Xanh</span>
-          </h1>
-          <p className="ts-sub">
-            Trên đường đi bộ từ <b>Nhà đến Trường</b>, em hãy nhặt những món rác rơi trên vỉa hè và bỏ gọn vào thùng rác ven đường nhé!
-          </p>
-
-          <ul className="se-rules">
-            <li className="se-rule is-good">
-              <span>🖐️</span>
-              <div>
-                <b>Bước 1 — Nhặt rác trên đường</b>
-                <small>Chạm vào món rác khi nhân vật dừng lại</small>
-              </div>
-            </li>
-            <li className="se-rule is-good">
-              <span>🗑️</span>
-              <div>
-                <b>Bước 2 — Bỏ vào thùng rác</b>
-                <small>Chạm vào thùng rác bên vệ đường để nhận điểm</small>
-              </div>
-            </li>
-          </ul>
-
-          <p className="ts-cap">
-            🎁 Tối đa <b>+{MAX_REWARD_PER_ROUND} XP</b> & <b>+{MAX_REWARD_PER_ROUND} Xu</b> mỗi chuyến đi học
-          </p>
-          {startError && <p className="ts-warn">{startError}</p>}
-          <button className="btn btn--primary btn--lg btn--block" onClick={startGame} id="game-start">
-            Bắt đầu đi học! 🎒
+    <main className="ts-screen gs-play">
+      <div
+        className="gs-arena"
+        onPointerDown={(e) => {
+          touchStartXRef.current = e.clientX
+        }}
+        onPointerUp={(e) => {
+          if (touchStartXRef.current == null) return
+          const dx = e.clientX - touchStartXRef.current
+          touchStartXRef.current = null
+          if (Math.abs(dx) > 28) {
+            if (dx < 0 && st.lane > 0) setLane(st.lane - 1)
+            else if (dx > 0 && st.lane < 2) setLane(st.lane + 1)
+          }
+        }}
+      >
+        {/* Thanh HUD chuẩn giống Thùng Rác Thông Thái & Biệt Đội Tiết Kiệm */}
+        <header className="ts-hud">
+          <button className="ts-close ts-close--inline" onClick={exit} aria-label="Tạm dừng">
+            ✕
           </button>
-        </section>
-      )}
-
-      {/* ============ MÀN HÌNH ĐANG CHƠI ============ */}
-      {phase === 'playing' && (
-        <>
-          <div className="gs-journey">
-            <div className="gs-journey__top">
-              <span>🏡 Nhà</span>
-              <span>
-                🧹 Đã bỏ thùng: <b>{cleanedCount}</b>/{TOTAL_STOPS}
-              </span>
-              <span>🏫 Trường ({Math.round(distance)}%)</span>
-            </div>
-            <div className="gs-journey__bar">
-              <div className="gs-journey__fill" style={{ width: `${distance}%` }} />
-              <span className="gs-journey__pin" style={{ left: `${Math.min(96, Math.max(4, distance))}%` }}>
-                🚶
-              </span>
-            </div>
+          <div className={`ts-timer ${timeLeft <= 7 ? 'is-low' : ''}`} aria-label={`Đã đi ${walkPct}% quãng đường`}>
+            <span>🏡</span>
+            <span style={{ fontSize: '0.9rem' }}>➔ 🏫 {walkPct}%</span>
+            <div className="ts-timer__bar" style={{ width: `${walkPct}%` }} />
           </div>
+          <div className="ts-score" aria-label={`Đã bỏ thùng ${st.score} rác`}>
+            🗑️ {st.score}
+          </div>
+        </header>
 
-          <div className="gs-stage">
-            <span className="gs-sun" aria-hidden="true">
-              ☀️
-            </span>
-            <span className="gs-cloud gs-cloud--1" aria-hidden="true">
-              ☁️
-            </span>
-            <span className="gs-cloud gs-cloud--2" aria-hidden="true">
-              ☁️
-            </span>
+        {/* Vỉa hè trái & phải cuộn theo bước chân */}
+        <div
+          className="gs-curb gs-curb--left"
+          style={{ backgroundPositionY: `${st.roadOffset}px` }}
+          aria-hidden="true"
+        />
+        <div
+          className="gs-curb gs-curb--right"
+          style={{ backgroundPositionY: `${st.roadOffset}px` }}
+          aria-hidden="true"
+        />
 
-            {/* Cảnh vật nhà cửa, cây xanh, cổng trường trôi theo bước chân */}
-            <div className="gs-scenery" aria-hidden="true">
-              {SCENERY_PROPS.map((p, i) => {
-                const screenX = 20 + (p.at - distance) * 2.2
-                if (screenX < -25 || screenX > 125) return null
-                return (
-                  <div key={i} className="gs-prop" style={{ left: `${screenX}%` }}>
-                    <span className="gs-prop__emoji">{p.emoji}</span>
-                    {p.tag && <span className="gs-prop__tag">{p.tag}</span>}
-                  </div>
-                )
-              })}
-            </div>
+        {/* Cây xanh & cảnh vật hai bên vỉa hè */}
+        {st.trees.map((tr) => (
+          <div
+            key={tr.id}
+            className="gs-tree"
+            style={{
+              left: tr.side === 'left' ? '7%' : '93%',
+              top: `${tr.y}%`,
+            }}
+            aria-hidden="true"
+          >
+            {tr.icon}
+          </div>
+        ))}
 
-            {/* Vạch kẻ đường */}
+        {/* Lòng đường 3 làn */}
+        <div className="gs-road">
+          <div
+            className="gs-lane-divider gs-lane-divider--1"
+            style={{ transform: `translate(-50%, ${st.roadOffset}px)` }}
+          />
+          <div
+            className="gs-lane-divider gs-lane-divider--2"
+            style={{ transform: `translate(-50%, ${st.roadOffset}px)` }}
+          />
+
+          {/* 3 vùng chạm trực tiếp trên mặt đường */}
+          {[0, 1, 2].map((laneIdx) => (
             <div
-              className="gs-road-lines"
-              style={{ backgroundPositionX: `-${Math.round(distance * 18)}px` }}
-              aria-hidden="true"
+              key={laneIdx}
+              className="gs-lane-touch"
+              style={{ left: `${laneIdx * 33.333}%` }}
+              onClick={() => setLane(laneIdx)}
             />
+          ))}
 
-            {/* Nhân vật học sinh & Chibi đồng hành */}
-            <div className={`gs-hero ${stepState === 'walking' ? 'is-walking' : ''}`}>
-              <div className="gs-hero__bubble">{bubble}</div>
-              <div className="gs-hero__body">
-                <ChibiAvatar xp={user.tong_diem_tich_luy} size={62} />
-                <span className="gs-hero__kid" role="img" aria-label="Học sinh đi bộ">
-                  🚶‍♂️🎒
-                </span>
-                {stepState === 'holding_trash' && activeStop && (
-                  <span className="gs-hero__held" title={activeStop.item.ten}>
-                    {activeStop.item.icon}
-                  </span>
-                )}
-              </div>
+          {/* Cổng trường xuất hiện ở những giây cuối */}
+          {timeLeft <= 3 && (
+            <div
+              className="gs-school-gate"
+              style={{ top: `${Math.min(62, (3 - timeLeft) * 22 + 18)}%` }}
+            >
+              <span className="gs-school-gate__icon">🏫</span>
+              <span className="gs-school-gate__text">TRƯỜNG HỌC XANH</span>
             </div>
+          )}
 
-            {/* Món rác xuất hiện trên đường */}
-            {stepState === 'found_trash' && activeStop && (
-              <button
-                type="button"
-                id="btn-trash-on-road"
-                className="gs-trash-spot"
-                onClick={handlePickUpTrash}
-                aria-label={`Nhặt ${activeStop.item.ten}`}
-              >
-                <span className="gs-trash-spot__hint">👇 Chạm để nhặt rác!</span>
-                <span className="gs-trash-spot__icon">{activeStop.item.icon}</span>
-                <span className="gs-trash-spot__name">{activeStop.item.ten}</span>
-              </button>
-            )}
-
-            {/* Thùng rác bên vệ đường */}
-            {(stepState === 'found_trash' || stepState === 'holding_trash' || stepState === 'cleaned') && (
-              <button
-                type="button"
-                id="btn-roadside-bin"
-                className={`gs-bin-spot ${stepState === 'holding_trash' ? 'is-ready' : ''}`}
-                onClick={handlePutInBin}
-                disabled={stepState !== 'holding_trash'}
-                aria-label="Bỏ rác vào thùng"
-              >
-                {stepState === 'holding_trash' && (
-                  <span className="gs-bin-spot__hint">👇 Bỏ vào thùng!</span>
-                )}
-                <span className="gs-bin-spot__box">
-                  {stepState === 'cleaned' ? '✨🗑️' : '🗑️'}
-                </span>
-                <span className="gs-bin-spot__label">Thùng Rác Xanh</span>
-              </button>
-            )}
-
-            {floatFx && (
-              <div key={floatFx.id} className="gs-floating-score">
-                {floatFx.text}
-              </div>
-            )}
-          </div>
-
-          {/* Bảng nút bấm thao tác nhanh bên dưới */}
-          <div className="gs-controls">
-            <div className="gs-controls__status">
-              {stepState === 'walking' && '👣 Em đang bước đi trên vỉa hè đến trường...'}
-              {stepState === 'found_trash' && activeStop && `👀 Phát hiện: ${activeStop.item.icon} ${activeStop.item.ten} trên đường!`}
-              {stepState === 'holding_trash' && activeStop && `🖐️ Đang cầm ${activeStop.item.icon} ${activeStop.item.ten} — hãy bỏ vào thùng rác!`}
-              {stepState === 'cleaned' && '🌸 Tuyệt vời! Đường phố sạch đẹp hơn rồi!'}
-            </div>
-
-            <div className="gs-controls__btns">
-              {stepState === 'found_trash' && (
-                <>
-                  <button
-                    type="button"
-                    id="btn-action-pickup"
-                    className="btn btn--primary"
-                    onClick={handlePickUpTrash}
-                  >
-                    🖐️ Nhặt rác lên
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    onClick={handleSkipTrash}
-                  >
-                    Đi qua →
-                  </button>
-                </>
-              )}
-
-              {stepState === 'holding_trash' && (
-                <button
-                  type="button"
-                  id="btn-action-putbin"
-                  className="btn btn--primary btn--lg"
-                  onClick={handlePutInBin}
+          {/* Các món rác, thùng rác, vũng nước trên 3 làn đường */}
+          {st.objects.map((obj) => {
+            if (obj.hit && obj.kind !== 'bin') return null
+            const leftPct = LANE_CENTERS[obj.lane]
+            if (obj.kind === 'trash') {
+              return (
+                <div
+                  key={obj.id}
+                  className="gs-obj gs-obj--trash"
+                  style={{ left: `${leftPct}%`, top: `${obj.y}%` }}
                 >
-                  🗑️ Bỏ vào Thùng Rác (+1 Điểm)
-                </button>
-              )}
-
-              {(stepState === 'walking' || stepState === 'cleaned') && (
-                <button type="button" className="btn btn--ghost" disabled>
-                  🚶 Đang bước tới trường... ({currentIdx + 1}/{TOTAL_STOPS})
-                </button>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ============ ĐANG NỘP KẾT QUẢ ============ */}
-      {phase === 'submitting' && (
-        <section className="ts-box">
-          <div style={{ fontSize: '3.2rem', marginBottom: '8px' }}>🏫</div>
-          <div className="spinner" />
-          <p className="ts-sub">Đã tới cổng trường! Đang tổng kết Bước Chân Xanh...</p>
-        </section>
-      )}
-
-      {/* ============ MÀN HÌNH KẾT QUẢ ============ */}
-      {phase === 'result' && result && (
-        <section className="ts-box ts-result">
-          {result.earned > 0 && <Confetti />}
-          {result.levelUp ? (
-            <div className="levelup">
-              <p className="levelup__label">✨ Chibi đã tiến hóa! ✨</p>
-              <ChibiAvatar xp={user.tong_diem_tich_luy} size={150} celebrate />
-              <p className="levelup__name">{getLevel(user.tong_diem_tich_luy).ten}</p>
-            </div>
-          ) : (
-            <ChibiAvatar xp={user.tong_diem_tich_luy} size={130} />
-          )}
-
-          <h2 className="ts-title">
-            {result.score >= 8
-              ? 'Tới Trường Thật Tuyệt! 🏫'
-              : result.score >= 4
-                ? 'Hành Trình Xanh Đẹp! 🌱'
-                : 'Đã Tới Trường Học! 🎒'}
-          </h2>
-          <p className="ts-sub">
-            Em đã nhặt và bỏ vào thùng <b>{result.score}</b>/{TOTAL_STOPS} món rác trên đường đi học
-          </p>
-
-          {result.error ? (
-            <p className="ts-warn">{result.error}</p>
-          ) : (
-            <>
-              <div className="ts-reward">
-                <div className="ts-reward__item">
-                  <span>⭐ +{result.earned}</span>
-                  <small>Điểm XP</small>
+                  <span className="gs-obj__icon">{obj.icon}</span>
+                  <span className="gs-obj__tag">{obj.ten}</span>
                 </div>
-                <div className="ts-reward__item ts-reward__item--coin">
-                  <span>🍃 +{result.earned}</span>
-                  <small>Xu Xanh</small>
-                </div>
+              )
+            }
+            if (obj.kind === 'bin') {
+              return (
+                <button
+                  key={obj.id}
+                  type="button"
+                  className={`gs-obj gs-obj--bin ${st.holding.length > 0 && !obj.hit ? 'is-glowing' : ''}`}
+                  style={{ left: `${leftPct}%`, top: `${obj.y}%` }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLane(obj.lane)
+                    dumpToNearbyBin(obj)
+                  }}
+                >
+                  <span className="gs-obj__icon">{obj.hit ? '✨🗑️' : '🗑️'}</span>
+                  <span className="gs-obj__tag">
+                    {st.holding.length > 0 && !obj.hit ? 'Bỏ vào đây!' : 'Thùng Rác'}
+                  </span>
+                </button>
+              )
+            }
+            return (
+              <div
+                key={obj.id}
+                className="gs-obj gs-obj--puddle"
+                style={{ left: `${leftPct}%`, top: `${obj.y}%` }}
+              >
+                <span className="gs-obj__icon">💦</span>
               </div>
-              {result.dailyCapped && (
-                <p className="ts-hint">Hôm nay em đã đạt tối đa 30 điểm/ngày rồi! 🌙</p>
-              )}
-            </>
-          )}
+            )
+          })}
 
-          <div className="ts-actions">
-            <button className="btn btn--ghost" onClick={() => navigate('/')} id="game-home">
-              🏡 Về khu vườn
-            </button>
-            <button className="btn btn--primary" onClick={startGame} id="game-replay">
-              🔄 Đi học lại
-            </button>
+          {/* Nhân vật Chibi đeo cặp sách đi bộ trên làn đường */}
+          <div
+            className="gs-player"
+            style={{ left: `${LANE_CENTERS[st.lane]}%` }}
+          >
+            <div className={`gs-player__bag-pill ${st.holding.length > 0 ? 'is-full' : ''}`}>
+              {st.holding.length > 0 ? (
+                <>
+                  <span>🖐️ Cầm {st.holding.length}:</span>
+                  <span>{st.holding.slice(-4).join('')}</span>
+                </>
+              ) : (
+                <span>👣 Đang đi học</span>
+              )}
+            </div>
+            <div className="gs-player__avatar">
+              <ChibiAvatar xp={user.tong_diem_tich_luy} size={74} />
+              <span className="gs-player__backpack" title="Cặp sách đi học">
+                🎒
+              </span>
+            </div>
           </div>
-        </section>
-      )}
+        </div>
+
+        {/* Hiệu ứng hạt VFX & chữ nổi cộng điểm */}
+        {st.particles.map((p) => {
+          const t = Math.min(1, (now - p.at) / p.ttl)
+          return (
+            <span
+              key={p.id}
+              className="vfx-particle"
+              style={{
+                left: `calc(${p.xPct}% + ${p.vx * t}px)`,
+                top: `calc(${p.yPct}% + ${p.vy * t + 36 * t * t}px)`,
+                opacity: 1 - t,
+                fontSize: '1.3rem',
+              }}
+            >
+              {p.icon}
+            </span>
+          )
+        })}
+
+        {st.floaters.map((f) => (
+          <span
+            key={f.id}
+            className={`ts-floater ${f.ok ? 'is-ok' : 'is-bad'}`}
+            style={{ left: `${f.xPct}%`, top: `${f.yPct}%` }}
+          >
+            {f.text}
+          </span>
+        ))}
+
+        {/* Thanh điều khiển nhanh ở dưới cùng */}
+        <div className="gs-bottom-bar">
+          <button
+            type="button"
+            className={`gs-steer-btn ${st.lane === 0 ? 'is-active' : ''}`}
+            onClick={() => setLane(Math.max(0, st.lane - 1))}
+          >
+            ◀ Qua Trái
+          </button>
+          <button
+            type="button"
+            className="gs-dump-btn"
+            disabled={st.holding.length === 0 || !hasNearbyBin}
+            onClick={() => dumpToNearbyBin()}
+          >
+            🗑️ {st.holding.length > 0 ? `Bỏ ${st.holding.length} rác` : 'Chưa cầm rác'}
+          </button>
+          <button
+            type="button"
+            className={`gs-steer-btn ${st.lane === 2 ? 'is-active' : ''}`}
+            onClick={() => setLane(Math.min(2, st.lane + 1))}
+          >
+            Qua Phải ▶
+          </button>
+        </div>
+      </div>
     </main>
   )
 }
