@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Bước Chân Xanh — Illustrated Street Runner & Chibi Bin Assets
+   Bước Chân Xanh — Pedestrian Sidewalk Walkway & School Campus Arrival
    ========================================================================== */
 
 .gs-play {
@@ -16,7 +16,7 @@
   background: #4ade80;
 }
 
-/* ---------- Vỉa hè & Bó vỉa (Sidewalk & Curbs) ---------- */
+/* ---------- Thảm cỏ xanh & Bồn hoa hai bên vỉa hè (Park Grass Strips) ---------- */
 .gs-curb {
   position: absolute;
   top: 0;
@@ -24,63 +24,88 @@
   width: 16%;
   pointer-events: none;
   z-index: 2;
-  background-color: #dcfce7;
+  background-color: #22c55e;
   background-image:
-    linear-gradient(180deg, rgba(16, 185, 129, 0.14) 2px, transparent 2px),
-    linear-gradient(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px);
-  background-size: 100% 44px, 22px 44px;
+    radial-gradient(circle at 30% 22px, rgba(187, 247, 208, 0.35) 3px, transparent 4px),
+    radial-gradient(circle at 70% 52px, rgba(21, 128, 61, 0.28) 4px, transparent 5px),
+    linear-gradient(180deg, rgba(22, 163, 74, 0.22) 2px, transparent 2px);
+  background-size: 100% 76px, 100% 76px, 100% 38px;
 }
 
 .gs-curb--left {
   left: 0;
-  border-right: 8px solid #e2e8f0;
-  box-shadow: inset -6px 0 0 #86efac, 4px 0 12px rgba(0, 0, 0, 0.22);
+  border-right: 7px solid #d97706;
+  box-shadow: inset -6px 0 0 #16a34a, 4px 0 10px rgba(120, 53, 15, 0.18);
 }
 
 .gs-curb--right {
   right: 0;
-  border-left: 8px solid #e2e8f0;
-  box-shadow: inset 6px 0 0 #86efac, -4px 0 12px rgba(0, 0, 0, 0.22);
+  border-left: 7px solid #d97706;
+  box-shadow: inset 6px 0 0 #16a34a, -4px 0 10px rgba(120, 53, 15, 0.18);
 }
 
-/* Bó vỉa kẻ vạch trắng-vàng dọc mép đường */
+/* Viền gạch nung ấm áp bo dọc mép vỉa hè đi bộ */
 .gs-curb::after {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 8px;
+  width: 7px;
   background: repeating-linear-gradient(
     180deg,
-    #facc15 0px,
-    #facc15 24px,
-    #ffffff 24px,
-    #ffffff 48px
+    #f59e0b 0px,
+    #f59e0b 22px,
+    #b45309 22px,
+    #b45309 25px,
+    #fbbf24 25px,
+    #fbbf24 47px,
+    #b45309 47px,
+    #b45309 50px
   );
   background-position-y: inherit;
 }
 
 .gs-curb--left::after {
-  right: -8px;
+  right: -7px;
 }
 
 .gs-curb--right::after {
-  left: -8px;
+  left: -7px;
 }
 
-/* ---------- Mặt đường nhựa 3 làn ---------- */
+/* ---------- Vỉa hè đi bộ lát gạch 3 dải (Pedestrian Tiled Sidewalk) ---------- */
 .gs-road {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 16%;
   right: 16%;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(148, 163, 184, 0.12), transparent 70%),
-    linear-gradient(90deg, #334155 0%, #3b495e 18%, #475569 50%, #3b495e 82%, #334155 100%);
+  background-color: #fef3c7;
+  background-image:
+    /* Đường mạch gạch ngang trôi mượt 60fps theo backgroundPositionY */
+    linear-gradient(180deg, rgba(180, 83, 9, 0.18) 2px, transparent 2px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 4px, transparent 4px),
+    /* Phối màu 3 hàng gạch lát vỉa hè đi bộ ấm áp, thân thiện */
+    linear-gradient(
+      90deg,
+      #fde68a 0%,
+      #fef3c7 16%,
+      #fde68a 32.8%,
+      #d97706 33.333%,
+      #fef9c3 33.8%,
+      #fffbeb 50%,
+      #fef9c3 66.2%,
+      #d97706 66.666%,
+      #fde68a 67.2%,
+      #fef3c7 84%,
+      #fde68a 100%
+    );
+  background-size: 100% 38px, 100% 38px, 100% 100%;
+  box-shadow: inset 0 0 18px rgba(180, 83, 9, 0.14);
   overflow: hidden;
 }
 
+/* Mạch gạch trang trí chia 3 hàng gạch vỉa hè (thay cho vạch kẻ làn xe) */
 .gs-lane-divider {
   position: absolute;
   top: -120px;
@@ -88,12 +113,16 @@
   width: 6px;
   background: repeating-linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.7) 0px,
-    rgba(255, 255, 255, 0.7) 34px,
-    transparent 34px,
-    transparent 76px
+    #f59e0b 0px,
+    #f59e0b 17px,
+    #92400e 17px,
+    #92400e 19px,
+    #fcd34d 19px,
+    #fcd34d 36px,
+    #92400e 36px,
+    #92400e 38px
   );
-  border-radius: 4px;
+  opacity: 0.75;
   pointer-events: none;
 }
 
@@ -107,23 +136,6 @@
   transform: translateX(-50%);
 }
 
-/* Vạch kẻ sang đường Zebra ở gần cổng trường */
-.gs-crosswalk {
-  position: absolute;
-  left: 4%;
-  right: 4%;
-  height: 44px;
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.88) 0px,
-    rgba(255, 255, 255, 0.88) 18px,
-    transparent 18px,
-    transparent 34px
-  );
-  z-index: 2;
-  pointer-events: none;
-}
-
 .gs-lane-touch {
   position: absolute;
   top: 0;
@@ -133,25 +145,50 @@
   cursor: pointer;
 }
 
-/* ---------- Cảnh vật vỉa hè SVG ---------- */
+/* ---------- Cảnh vật công viên hai bên vỉa hè SVG ---------- */
 .gs-tree {
   position: absolute;
   z-index: 3;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.22));
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.18));
 }
 
-/* ---------- Cổng Trường Học Xanh SVG ---------- */
-.gs-school-gate {
+/* ---------- Khuôn viên & Cổng Trường Học Xanh (Kết thúc vỉa hè tại cổng) ---------- */
+.gs-school-arrival {
   position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 7;
-  width: 92%;
-  max-width: 320px;
+  left: 0;
+  right: 0;
+  /* Đáy của khuôn viên trường nằm đúng tại toạ độ gateY; toàn bộ phần phía trên cổng
+     là sân trường & tòa nhà trường học phủ kín vỉa hè phía sau cổng! */
+  height: 110vh;
+  transform: translateY(-100%);
+  z-index: 5;
   pointer-events: none;
-  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.35));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 75%, #dcfce7 0%, #86efac 65%, #4ade80 100%);
+  border-bottom: 8px solid #15803d;
+  box-shadow: 0 12px 24px rgba(6, 78, 59, 0.28);
+}
+
+.gs-school-campus-yard {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 2px;
+}
+
+.gs-school-gate-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.22));
 }
 
 /* ---------- Sticker Món Rác Vector 3D ---------- */
@@ -174,7 +211,7 @@
   width: 48px;
   height: 12px;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.42);
+  background: rgba(120, 53, 15, 0.28);
   margin-top: -6px;
   filter: blur(1px);
 }
@@ -187,7 +224,7 @@
   border: 3px solid #ffffff;
   box-shadow:
     0 6px 0 #10b981,
-    0 10px 18px rgba(0, 0, 0, 0.32);
+    0 10px 18px rgba(0, 0, 0, 0.24);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,10 +241,10 @@
   font-weight: 800;
   white-space: nowrap;
   border: 1.5px solid #34d399;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* ---------- Thùng Rác Chibi 3D Bên Đường ---------- */
+/* ---------- Thùng Rác Chibi 3D Trên Vỉa Hè ---------- */
 .gs-chibi-bin-wrap {
   pointer-events: auto;
   cursor: pointer;
@@ -227,7 +264,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.25));
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -336,10 +373,10 @@
   font-weight: 900;
   border: 2px solid #eab308;
   white-space: nowrap;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* ---------- Vũng Nước & Cọc Tiêu Cảnh Báo ---------- */
+/* ---------- Vũng Nước Đọng Trên Vỉa Hè ---------- */
 .gs-puddle-wrap {
   position: relative;
   width: 82px;
@@ -347,7 +384,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.28));
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.2));
 }
 
 /* ---------- Nhân vật học sinh Chibi ---------- */
@@ -373,7 +410,7 @@
   font-weight: 900;
   margin-bottom: 6px;
   white-space: nowrap;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -397,14 +434,14 @@
   position: relative;
   z-index: 2;
   animation: gsStepBob 0.26s ease-in-out infinite alternate;
-  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.28));
 }
 
 .gs-player__ground-shadow {
   width: 58px;
   height: 15px;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(120, 53, 15, 0.32);
   margin-top: -8px;
   animation: gsShadowPulse 0.26s ease-in-out infinite alternate;
 }
@@ -420,7 +457,7 @@
   border: 2.5px solid #10b981;
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* ---------- Thanh nút điều khiển đáy màn hình ---------- */
@@ -444,7 +481,7 @@
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 0.95rem;
-  box-shadow: 0 4px 0 #86efac, 0 6px 14px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 4px 0 #86efac, 0 6px 14px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -461,7 +498,7 @@
   background: linear-gradient(180deg, #34d399, #10b981);
   color: #ffffff;
   border-color: #ecfdf5;
-  box-shadow: 0 4px 0 #047857, 0 6px 14px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 0 #047857, 0 6px 14px rgba(0, 0, 0, 0.24);
 }
 
 .gs-dump-btn {
@@ -473,7 +510,7 @@
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 0.9rem;
-  box-shadow: 0 4px 0 #ca8a04, 0 6px 14px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 0 #ca8a04, 0 6px 14px rgba(0, 0, 0, 0.22);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -482,7 +519,7 @@
 }
 
 .gs-dump-btn:disabled {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.85);
   color: #64748b;
   border-color: #cbd5e1;
   box-shadow: 0 4px 0 #94a3b8;

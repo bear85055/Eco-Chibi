@@ -87,7 +87,7 @@ function TrashSvg({ kind }) {
   }
 }
 
-/** Minh họa Vector SVG Vũng nước & Cọc tiêu giao thông */
+/** Minh họa Vector SVG Vũng nước đọng trên vỉa hè */
 function PuddleSvg() {
   return (
     <svg viewBox="0 0 90 56" width="82" height="52" aria-hidden="true">
@@ -99,15 +99,15 @@ function PuddleSvg() {
       />
       <ellipse cx="38" cy="32" rx="20" ry="7" fill="#38bdf8" opacity="0.7" />
       <ellipse cx="28" cy="29" rx="8" ry="2.5" fill="#e0f2fe" opacity="0.85" />
-      {/* Cọc tiêu cảnh báo cam-trắng */}
-      <polygon points="62,38 78,38 73,12 67,12" fill="#f97316" stroke="#c2410c" strokeWidth="2" strokeLinejoin="round" />
-      <polygon points="65,26 75,26 74,20 66,20" fill="#ffffff" />
-      <rect x="59" y="37" width="22" height="4" rx="2" fill="#ea580c" />
+      {/* Biển cảnh báo sàn ướt vàng trên vỉa hè */}
+      <polygon points="60,39 78,39 69,13" fill="#facc15" stroke="#b45309" strokeWidth="2" strokeLinejoin="round" />
+      <rect x="68" y="21" width="2.2" height="9" rx="1" fill="#713f12" />
+      <circle cx="69.1" cy="34" r="1.4" fill="#713f12" />
     </svg>
   )
 }
 
-/** Minh họa Vector SVG Cây xanh, Hoa, Đèn đường, Ghế đá trên vỉa hè */
+/** Minh họa Vector SVG Cây xanh, Bồn hoa, Đèn vỉa hè, Ghế đá công viên */
 function SidewalkPropSvg({ kind }) {
   if (kind === 'lamp') {
     return (
@@ -154,36 +154,66 @@ function SidewalkPropSvg({ kind }) {
   )
 }
 
-/** Minh họa Vector SVG Cổng Trường Học Xanh */
-function SchoolGateSvg() {
+/** Minh họa Vector SVG Khuôn viên Sân Trường & Cổng Trường Học Xanh (Kết thúc vỉa hè) */
+function SchoolCampusSvg() {
   return (
-    <svg viewBox="0 0 320 120" width="100%" height="105" aria-hidden="true">
-      {/* Cột cổng hai bên */}
-      <rect x="18" y="38" width="28" height="78" rx="4" fill="#fde047" stroke="#b45309" strokeWidth="3" />
-      <rect x="274" y="38" width="28" height="78" rx="4" fill="#fde047" stroke="#b45309" strokeWidth="3" />
-      {/* Mái ngói đỏ cổng trường */}
-      <polygon points="6,42 160,8 314,42" fill="#ef4444" stroke="#991b1b" strokeWidth="3.5" strokeLinejoin="round" />
-      {/* Bảng tên trường */}
-      <rect x="44" y="32" width="232" height="32" rx="8" fill="#ffffff" stroke="#15803d" strokeWidth="3.5" />
-      <text x="160" y="53" textAnchor="middle" fill="#065f46" fontWeight="900" fontSize="15" fontFamily="sans-serif">
+    <svg viewBox="0 0 360 220" className="gs-school-gate-svg" aria-hidden="true">
+      {/* Thảm cỏ & sân gạch trường học phía trong cổng */}
+      <rect x="0" y="0" width="360" height="205" fill="#bbf7d0" />
+      <path d="M125 95 L235 95 L275 205 L85 205 Z" fill="#fde68a" stroke="#f59e0b" strokeWidth="2" />
+
+      {/* Cây xanh mát trong sân trường */}
+      <circle cx="48" cy="82" r="28" fill="#16a34a" />
+      <circle cx="38" cy="72" r="18" fill="#22c55e" />
+      <circle cx="312" cy="82" r="28" fill="#16a34a" />
+      <circle cx="322" cy="72" r="18" fill="#22c55e" />
+
+      {/* Tòa nhà trường học 2 tầng phía trong sân */}
+      <rect x="74" y="28" width="212" height="72" rx="6" fill="#fef08a" stroke="#ca8a04" strokeWidth="3" />
+      <polygon points="62,30 180,2 298,30" fill="#ef4444" stroke="#991b1b" strokeWidth="3" strokeLinejoin="round" />
+
+      {/* Cột cờ Tổ quốc trên mái trường */}
+      <line x1="180" y1="2" x2="180" y2="-12" stroke="#475569" strokeWidth="3" />
+      <rect x="92" y="42" width="26" height="22" rx="3" fill="#bae6fd" stroke="#0284c7" strokeWidth="2" />
+      <rect x="130" y="42" width="26" height="22" rx="3" fill="#bae6fd" stroke="#0284c7" strokeWidth="2" />
+      <rect x="204" y="42" width="26" height="22" rx="3" fill="#bae6fd" stroke="#0284c7" strokeWidth="2" />
+      <rect x="242" y="42" width="26" height="22" rx="3" fill="#bae6fd" stroke="#0284c7" strokeWidth="2" />
+      {/* Cửa sảnh chính tòa nhà trường */}
+      <rect x="164" y="62" width="32" height="38" rx="4" fill="#b45309" />
+      <circle cx="180" cy="20" r="9" fill="#ffffff" stroke="#b45309" strokeWidth="2" />
+      <path d="M180 15 L180 20 L184 20" stroke="#713f12" strokeWidth="2" strokeLinecap="round" fill="none" />
+
+      {/* Tường rào trường học hai bên cổng */}
+      <rect x="0" y="168" width="68" height="38" fill="#fcd34d" stroke="#b45309" strokeWidth="3" />
+      <rect x="292" y="168" width="68" height="38" fill="#fcd34d" stroke="#b45309" strokeWidth="3" />
+      <rect x="8" y="148" width="52" height="20" rx="2" fill="#dcfce7" stroke="#15803d" strokeWidth="2.5" />
+      <rect x="300" y="148" width="52" height="20" rx="2" fill="#dcfce7" stroke="#15803d" strokeWidth="2.5" />
+
+      {/* Hai trụ cổng trường lớn */}
+      <rect x="56" y="128" width="28" height="84" rx="4" fill="#f59e0b" stroke="#78350f" strokeWidth="3" />
+      <rect x="276" y="128" width="28" height="84" rx="4" fill="#f59e0b" stroke="#78350f" strokeWidth="3" />
+
+      {/* Mái vòm Cổng Trường Học Xanh */}
+      <polygon points="40,132 180,98 320,132" fill="#ef4444" stroke="#991b1b" strokeWidth="3.5" strokeLinejoin="round" />
+      <rect x="70" y="120" width="220" height="34" rx="8" fill="#ffffff" stroke="#15803d" strokeWidth="3.5" />
+      <text x="180" y="142" textAnchor="middle" fill="#065f46" fontWeight="900" fontSize="15" fontFamily="sans-serif">
         🏫 TRƯỜNG HỌC XANH
       </text>
-      {/* Đồng hồ tròn trên đỉnh cổng */}
-      <circle cx="160" cy="21" r="10" fill="#fef9c3" stroke="#b45309" strokeWidth="2.5" />
-      <path d="M160 15 L160 21 L164 21" stroke="#713f12" strokeWidth="2" strokeLinecap="round" fill="none" />
     </svg>
   )
 }
 
 function createInitialState() {
   return {
-    lane: 1, // 0: Trái, 1: Giữa, 2: Phải
+    lane: 1, // 0: Trái, 1: Giữa, 2: Phải trên vỉa hè
     holding: [], // Danh sách rác đang cầm trên tay
     score: 0,
     pickedTotal: 0,
     slipped: 0,
     elapsed: 0,
     roadOffset: 0,
+    gateY: -20, // Tọa độ đáy cổng trường (% chiều cao màn hình), trôi mượt 60fps ở cuối chặng
+    arrived: false,
     spawnTimer: 400,
     binTimer: 2200,
     treeTimer: 0,
@@ -214,6 +244,7 @@ export default function DailyQuiz() {
   const gameRef = useRef(createInitialState())
   const sessionRef = useRef(null)
   const touchStartXRef = useRef(null)
+  const finishingRef = useRef(false)
 
   const start = async () => {
     setStartError('')
@@ -221,6 +252,7 @@ export default function DailyQuiz() {
       const s = await batDauGame('trash_sorting')
       sessionRef.current = s.id
       gameRef.current = createInitialState()
+      finishingRef.current = false
       setResult(null)
       setTimeLeft(GAME_SECONDS)
       setPhase('playing')
@@ -230,6 +262,8 @@ export default function DailyQuiz() {
   }
 
   const finish = async () => {
+    if (finishingRef.current) return
+    finishingRef.current = true
     setPhase('submitting')
     const st = gameRef.current
     const finalScore = st.score + st.holding.length
@@ -251,14 +285,9 @@ export default function DailyQuiz() {
 
   useEffect(() => {
     if (phase !== 'playing') return
-    const id = setInterval(() => setTimeLeft((t) => t - 1), 1000)
+    const id = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000)
     return () => clearInterval(id)
   }, [phase])
-
-  useEffect(() => {
-    if (phase === 'playing' && timeLeft <= 0) finish()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, phase])
 
   useEffect(() => {
     if (phase !== 'playing') return
@@ -347,13 +376,31 @@ export default function DailyQuiz() {
       const st = gameRef.current
       st.elapsed += dt
       const progress = Math.min(1, st.elapsed / (GAME_SECONDS * 1000))
-      const speedPctPerSec = 28 + 12 * progress
+      const speedPctPerSec = 28 + 10 * progress
 
+      // Gạch lát vỉa hè trôi mượt ở 60fps
       st.roadOffset = (st.roadOffset + ((speedPctPerSec * dt) / 1000) * 5.2) % 76
 
-      // Sinh cảnh vật vỉa hè
+      // Giai đoạn về đích (từ 83% quãng đường): Khuôn viên Trường Học & Cổng Trường trôi mượt 60fps từ trên xuống
+      const isApproachingSchool = progress >= 0.83
+      if (isApproachingSchool) {
+        if (st.gateY < -5) st.gateY = -2
+        st.gateY += (speedPctPerSec * dt) / 1000
+        // Tự động hướng nhân vật vào làn giữa cổng trường khi sắp bước qua cổng
+        if (st.gateY >= PLAYER_Y_PCT - 14 && st.lane !== 1) {
+          st.lane = 1
+        }
+        // Khi cổng trường trôi xuống chạm đúng vị trí bước chân nhân vật -> đã bước vào sân trường!
+        if (st.gateY >= PLAYER_Y_PCT - 2 && !st.arrived) {
+          st.arrived = true
+          finish()
+          return
+        }
+      }
+
+      // Sinh cảnh vật công viên hai bên vỉa hè (chỉ sinh ở phía trước cổng trường)
       st.treeTimer += dt
-      if (st.treeTimer >= 900) {
+      if (st.treeTimer >= 900 && !isApproachingSchool) {
         st.treeTimer = 0
         st.trees.push({
           id: st.nextId++,
@@ -365,11 +412,11 @@ export default function DailyQuiz() {
       for (const tr of st.trees) {
         tr.y += (speedPctPerSec * dt) / 1000
       }
-      st.trees = st.trees.filter((tr) => tr.y < 110)
+      st.trees = st.trees.filter((tr) => tr.y < 110 && (!isApproachingSchool || tr.y > st.gateY + 4))
 
-      // Sinh rác hoặc vũng nước
+      // Sinh rác hoặc vũng nước trên vỉa hè (ngừng sinh khi cổng trường đã xuất hiện)
       st.spawnTimer += dt
-      if (st.spawnTimer >= 1150 - 250 * progress && timeLeft > 2) {
+      if (st.spawnTimer >= 1150 - 250 * progress && progress < 0.78) {
         st.spawnTimer = 0
         const lane = Math.floor(Math.random() * 3)
         const busyLane = st.objects.some((o) => o.lane === lane && o.y < 20)
@@ -399,9 +446,9 @@ export default function DailyQuiz() {
         }
       }
 
-      // Sinh Thùng Rác Chibi định kỳ
+      // Sinh Thùng Rác Chibi định kỳ trên vỉa hè (ngừng sinh trước cổng trường)
       st.binTimer += dt
-      if (st.binTimer >= 3100) {
+      if (st.binTimer >= 3100 && progress < 0.8) {
         st.binTimer = 0
         const candidateLanes = [0, 1, 2].filter(
           (l) => !st.objects.some((o) => o.lane === l && o.y < 24),
@@ -519,29 +566,29 @@ export default function DailyQuiz() {
           Bước Chân <span>Xanh</span>
         </h1>
         <p className="ts-sub">
-          Đi bộ từ <b>Nhà 🏡 đến Trường 🏫</b>, chuyển làn nhặt rác trên đường và ghé vào <b>Thùng Rác Chibi 🗑️</b> để bỏ rác vào thùng nhé!
+          Đi bộ an toàn trên <b>vỉa hè lát gạch</b> từ <b>Nhà 🏡 đến Trường 🏫</b>, nhặt rác rơi trên vỉa hè và ghé vào <b>Thùng Rác Chibi 🗑️</b> để bỏ rác đúng nơi quy định nhé!
         </p>
 
         <ul className="se-rules">
           <li className="se-rule is-good">
             <span>🖐️</span>
             <div>
-              <b>Bước qua Rác để nhặt lên tay</b>
-              <small>Chạm vào làn đường (Trái / Giữa / Phải) hoặc vuốt ngang để nhặt rác</small>
+              <b>Đi bộ trên vỉa hè & nhặt rác</b>
+              <small>Chạm vào dải gạch vỉa hè (Trái / Giữa / Phải) hoặc vuốt ngang để nhặt rác</small>
             </div>
           </li>
           <li className="se-rule is-good">
             <span>🗑️</span>
             <div>
-              <b>Ghé vào Thùng Rác Chibi ven đường</b>
-              <small>Thùng rác sẽ há miệng đón chờ khi em cầm rác chạy tới</small>
+              <b>Ghé vào Thùng Rác Chibi trên vỉa hè</b>
+              <small>Thùng rác sẽ há miệng đón chờ khi em cầm rác bước tới</small>
             </div>
           </li>
           <li className="se-rule is-bad">
-            <span>🚧</span>
+            <span>⚠️</span>
             <div>
-              <b>Né các vũng nước cảnh báo</b>
-              <small>Dẫm vào vũng nước sẽ bị trượt chân làm rơi mất 1 món rác đang cầm</small>
+              <b>Tránh các vũng nước đọng</b>
+              <small>Dẫm vào vũng nước trên vỉa hè sẽ bị trượt chân làm rơi mất 1 món rác</small>
             </div>
           </li>
         </ul>
@@ -569,7 +616,7 @@ export default function DailyQuiz() {
         {phase === 'submitting' || !r ? (
           <div className="screen-center">
             <div className="spinner" />
-            <p>Đã tới cổng trường! Đang tổng kết điểm…</p>
+            <p>Đã bước vào cổng trường! Đang tổng kết điểm…</p>
           </div>
         ) : (
           <>
@@ -585,13 +632,13 @@ export default function DailyQuiz() {
 
             <h1 className="ts-title">
               {r.score >= 8
-                ? 'Đường Đến Trường Sạch Bóng! 🏫'
+                ? 'Vỉa Hè Đến Trường Sạch Bóng! 🏫'
                 : r.score >= 4
                   ? 'Hành Trình Xanh Tuyệt Vời! 🌱'
-                  : 'Đã Tới Trường Học! 🎒'}
+                  : 'Đã Tới Trường Học An Toàn! 🎒'}
             </h1>
             <p className="ts-sub">
-              Em đã nhặt và bỏ vào thùng <b>{r.score}</b> món rác trên đường đi học!
+              Em đã đi bộ trên vỉa hè an toàn và bỏ vào thùng <b>{r.score}</b> món rác trên đường đi học!
             </p>
 
             {r.error ? (
@@ -625,7 +672,7 @@ export default function DailyQuiz() {
   const st = gameRef.current
   // eslint-disable-next-line react-hooks/purity
   const now = performance.now()
-  const walkPct = Math.min(100, Math.round(((GAME_SECONDS - timeLeft) / GAME_SECONDS) * 100))
+  const walkPct = Math.min(100, Math.round((st.elapsed / (GAME_SECONDS * 1000)) * 100))
   const hasNearbyBin = st.objects.some((o) => o.kind === 'bin' && !o.hit && o.y >= 15 && o.y <= 92)
 
   return (
@@ -659,7 +706,7 @@ export default function DailyQuiz() {
           </div>
         </header>
 
-        {/* Vỉa hè gạch & Bó vỉa hai bên */}
+        {/* Thảm cỏ công viên & bồn hoa hai bên vỉa hè */}
         <div
           className="gs-curb gs-curb--left"
           style={{ backgroundPositionY: `${st.roadOffset}px` }}
@@ -686,8 +733,11 @@ export default function DailyQuiz() {
           </div>
         ))}
 
-        {/* Lòng đường nhựa 3 làn */}
-        <div className="gs-road">
+        {/* Vỉa hè đi bộ lát gạch 3 dải */}
+        <div
+          className="gs-road"
+          style={{ backgroundPositionY: `${st.roadOffset}px, ${st.roadOffset}px, 0px` }}
+        >
           <div
             className="gs-lane-divider gs-lane-divider--1"
             style={{ transform: `translate(-50%, ${st.roadOffset}px)` }}
@@ -705,22 +755,6 @@ export default function DailyQuiz() {
               onClick={() => setLane(laneIdx)}
             />
           ))}
-
-          {/* Vạch sang đường & Cổng Trường Học Xanh ở cuối chặng */}
-          {timeLeft <= 4 && (
-            <>
-              <div
-                className="gs-crosswalk"
-                style={{ top: `${Math.min(72, (4 - timeLeft) * 18 + 20)}%` }}
-              />
-              <div
-                className="gs-school-gate"
-                style={{ top: `${Math.min(58, (4 - timeLeft) * 18 + 6)}%` }}
-              >
-                <SchoolGateSvg />
-              </div>
-            </>
-          )}
 
           {/* Các vật phẩm: Rác SVG, Thùng Rác Chibi 3D, Vũng nước cảnh báo */}
           {st.objects.map((obj) => {
@@ -785,7 +819,7 @@ export default function DailyQuiz() {
             )
           })}
 
-          {/* Nhân vật Chibi học sinh đi bộ */}
+          {/* Nhân vật Chibi học sinh đi bộ trên vỉa hè */}
           <div className="gs-player" style={{ left: `${LANE_CENTERS[st.lane]}%` }}>
             <div className={`gs-player__bag-pill ${st.holding.length > 0 ? 'is-full' : ''}`}>
               {st.holding.length > 0 ? (
@@ -794,7 +828,7 @@ export default function DailyQuiz() {
                   <span>{st.holding.slice(-4).join('')}</span>
                 </>
               ) : (
-                <span>👣 Đang đi học</span>
+                <span>👣 Đi bộ trên vỉa hè</span>
               )}
             </div>
             <div className="gs-player__body">
@@ -808,6 +842,15 @@ export default function DailyQuiz() {
             </div>
           </div>
         </div>
+
+        {/* Khuôn viên Trường Học & Cổng Trường trôi mượt 60fps ở cuối chặng, khép lại vỉa hè */}
+        {st.gateY > -15 && (
+          <div className="gs-school-arrival" style={{ top: `${st.gateY}%` }} aria-hidden="true">
+            <div className="gs-school-campus-yard">
+              <SchoolCampusSvg />
+            </div>
+          </div>
+        )}
 
         {/* Sóng xung kích & hạt hiệu ứng VFX */}
         {st.rings.map((r) => (
