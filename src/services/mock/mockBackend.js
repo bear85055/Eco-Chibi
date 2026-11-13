@@ -525,7 +525,7 @@ export async function layBangXepHang() {
   const ranked = db.users
     .filter((u) => u.vai_tro === 'student')
     .sort((a, b) => b.tong_diem_tich_luy - a.tong_diem_tich_luy || a.thoi_diem_dat_diem - b.thoi_diem_dat_diem)
-    .map((u, i) => ({ id: u.id, hang: i + 1, ten_hien_thi: u.ten_hien_thi, lop: u.lop, xp: u.tong_diem_tich_luy }))
+    .map((u, i) => ({ id: u.id, hang: i + 1, ten_hien_thi: u.ten_hien_thi, truong: u.truong || '', lop: u.lop, xp: u.tong_diem_tich_luy }))
   return { top: ranked.slice(0, 20), toi: ranked.find((r) => r.id === me.id) || null, tong: ranked.length }
 }
 
@@ -773,7 +773,13 @@ export async function layDanhSachHocSinh({ lop = 'all', tuKhoa = '' } = {}) {
     .filter((u) => u.vai_tro === 'student')
     .filter((u) => {
       if (filterLop !== 'all' && u.lop !== filterLop) return false
-      if (q && !u.ho_ten.toUpperCase().includes(q) && !u.ma_dang_nhap.includes(q)) return false
+      if (
+        q &&
+        !u.ho_ten.toUpperCase().includes(q) &&
+        !u.ma_dang_nhap.toUpperCase().includes(q) &&
+        !(u.truong || '').toUpperCase().includes(q)
+      )
+        return false
       return true
     })
     .map((u) => ({
@@ -890,7 +896,7 @@ export async function themHocSinhThuCong({ ho_ten, lop, truong = '', ten_dang_nh
     truong: truong.trim(),
     vai_tro: 'student',
     diem_hien_co: 50,
-    tong_diem_tich_luy: 50,
+    tong_diem_tich_luy: 0,
     diem_kiem_hom_nay: 0,
     ngay_cap_nhat_cuoi: todayVN(),
     thoi_diem_dat_diem: Date.now(),

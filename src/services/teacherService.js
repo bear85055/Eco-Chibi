@@ -462,6 +462,10 @@ export async function xoaHocSinh(studentId) {
   }
 
   await layThongTinToi()
+  await supabase.from('redemptions').delete().eq('user_id', studentId)
+  await supabase.from('point_logs').delete().eq('user_id', studentId)
+  await supabase.from('game_sessions').delete().eq('user_id', studentId)
+
   const { error } = await supabase
     .from('users')
     .delete()

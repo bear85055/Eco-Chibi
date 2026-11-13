@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePlayer } from '../context/PlayerContext'
 import { askEcoChibi, QUICK_SUGGESTIONS } from '../services/ecoChatService'
+import { getLevel } from '../utils/levels'
 import './EcoChatWidget.css'
 
 function formatMessageText(text) {
@@ -23,7 +24,7 @@ function formatMessageText(text) {
 }
 
 export default function EcoChatWidget() {
-  const { user, level } = usePlayer()
+  const { user } = usePlayer()
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -31,7 +32,8 @@ export default function EcoChatWidget() {
   const inputRef = useRef(null)
   const msgCounterRef = useRef(1)
 
-  const avatarSrc = level?.img || '/assets/chibi/lv1.jpg'
+  const lv = getLevel(user?.tong_diem_tich_luy || 0)
+  const avatarSrc = lv?.img || '/assets/chibi/lv1.jpg'
   const studentName = user?.ho_ten ? user.ho_ten.split(' ').slice(-1)[0] : 'bạn nhỏ'
 
   const getInitialMessages = () => [
