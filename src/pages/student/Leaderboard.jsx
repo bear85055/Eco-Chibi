@@ -43,7 +43,9 @@ export default function Leaderboard() {
                   <span className="podium__medal">{MEDAL[p.hang]}</span>
                 </div>
                 <div className="podium__name">{p.ten_hien_thi}</div>
-                <div className="podium__class">Lớp {p.lop}</div>
+                <div className="podium__class">
+                  Lớp {p.lop}{p.truong ? ` · ${p.truong}` : ''}
+                </div>
                 <div className="podium__block">
                   <span className="podium__rank">{p.hang}</span>
                   <span className="podium__xp">{p.xp} XP</span>
@@ -60,7 +62,9 @@ export default function Leaderboard() {
                   <img className="rank-row__avatar" src={getLevel(r.xp).img} alt="" />
                   <div className="rank-row__who">
                     <span className="rank-row__name">{r.ten_hien_thi}{r.id === user.id && ' (Em)'}</span>
-                    <span className="rank-row__class">Lớp {r.lop}</span>
+                    <span className="rank-row__class">
+                      Lớp {r.lop}{r.truong ? ` · ${r.truong}` : ''}
+                    </span>
                   </div>
                   <span className="rank-row__xp">{r.xp} XP</span>
                 </li>

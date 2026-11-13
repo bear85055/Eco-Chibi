@@ -41,10 +41,20 @@ export async function layDanhSachDuyetQua({ lop = 'all', tuKhoa = '', trangThai 
   const { data, error } = await query
   if (error) throw new Error(error.message || 'Không thể tải danh sách đơn quà.')
 
-  let items = (data || []).map((it) => ({
-    ...it,
-    tenNguoiDuyet: it.duyetBoi?.ho_ten || null,
-  }))
+  let items = (data || []).map((it) => {
+    const parsedStu = it.student ? parseTenVaTruong(it.student) : null
+    return {
+      ...it,
+      student: it.student
+        ? {
+            ...it.student,
+            ten_hien_thi: parsedStu?.ten_hien_thi || it.student.ho_ten,
+            truong: parsedStu?.truong || '',
+          }
+        : null,
+      tenNguoiDuyet: it.duyetBoi?.ho_ten || null,
+    }
+  })
   if (staff.vai_tro === 'teacher') {
     items = items.filter((it) => it.student?.lop === staff.lop)
   } else if (lop !== 'all') {
@@ -223,6 +233,77 @@ export async function congDiemThuongHocSinh(studentId, { diem, lyDo }) {
   return data
 }
 
+export async function capNhatThongTinHocSinh(studentId, { ho_ten, lop, truong, ma_dang_nhap }) {
+  const cleanHoTen = (ho_ten || '').trim()
+  const cleanLop = (lop || '').trim().toUpperCase().replace(/\s/g, '')
+  const cleanTruong = (truong || '').trim()
+  const cleanUser = ma_dang_nhap ? sanitizeUsername(ma_dang_nhap) : ''
+
+  if (!cleanHoTen) throw new Error('Vui lòng nhập họ và tên học sinh.')
+  if (!cleanLop) throw new Error('Vui lòng nhập lớp học.')
+  if (!cleanTruong) throw new Error('Vui lòng nhập trường học.')
+
+  if (!supabase) {
+    return mock.capNhatThongTinHocSinh(studentId, {
+      ho_ten: cleanHoTen,
+      lop: cleanLop,
+      truong: cleanTruong,
+      ma_dang_nhap: cleanUser,
+    })
+  }
+
+  await layThongTinToi()
+  const encodedTenHienThi = encodeTenVaTruong(cleanHoTen, cleanTruong)
+
+  const updatePayload = {
+    ho_ten: cleanHoTen,
+    ten_hien_thi: encodedTenHienThi,
+    lop: cleanLop,
+  }
+
+  const { data: updated, error } = await supabase
+    .from('users')
+    .update(updatePayload)
+    .eq('id', studentId)
+    .select()
+    .maybeSingle()
+
+  if (error || !updated) {
+    // Dự phòng cập nhật qua RPC khởi tạo
+    const { data: currentStu } = await supabase
+      .from('users')
+      .select('ma_dang_nhap, pin, diem_hien_co, tong_diem_tich_luy')
+      .eq('id', studentId)
+      .maybeSingle()
+
+    if (currentStu?.ma_dang_nhap) {
+      await supabase.rpc('tao_tai_khoan_demo', {
+        p_ma: currentStu.ma_dang_nhap,
+        p_pin: getPinCache(studentId) || currentStu.pin || '1234',
+        p_ho_ten: cleanHoTen,
+        p_lop: cleanLop,
+        p_vai_tro: 'student',
+        p_xu: currentStu.diem_hien_co || 50,
+        p_xp: currentStu.tong_diem_tich_luy || 0,
+      })
+      await supabase
+        .from('users')
+        .update({ ten_hien_thi: encodedTenHienThi })
+        .eq('id', studentId)
+    } else if (error) {
+      throw new Error(error.message || 'Không thể cập nhật thông tin học sinh.')
+    }
+  }
+
+  return {
+    id: studentId,
+    ho_ten: cleanHoTen,
+    ten_hien_thi: parseTenVaTruong({ ten_hien_thi: encodedTenHienThi }).ten_hien_thi,
+    lop: cleanLop,
+    truong: cleanTruong,
+  }
+}
+
 export async function capLaiPinHocSinh(studentId, customPin) {
   const newPin =
     customPin && String(customPin).trim().length >= 4
@@ -389,7 +470,7 @@ export async function layNhatKyDiem({ lop = 'all' } = {}) {
       xu,
       ly_do,
       thoi_gian,
-      user:users!user_id(ho_ten, lop, ma_dang_nhap),
+      user:users!user_id(ho_ten, ten_hien_thi, lop, ma_dang_nhap),
       creator:users!nguoi_tao(ho_ten)
     `)
     .order('thoi_gian', { ascending: false })
@@ -397,22 +478,26 @@ export async function layNhatKyDiem({ lop = 'all' } = {}) {
 
   if (error) throw new Error(error.message || 'Không thể tải nhật ký điểm.')
 
-  let list = (data || []).map((row) => ({
-    id: row.id,
-    loai: row.loai,
-    xp: row.xp,
-    xu: row.xu,
-    ly_do: row.ly_do,
-    thoi_gian: row.thoi_gian,
-    student: row.user
-      ? {
-          ho_ten: row.user.ho_ten || 'Học sinh',
-          lop: row.user.lop || '',
-          ma_dang_nhap: row.user.ma_dang_nhap || '',
-        }
-      : null,
-    tenNguoiTao: row.creator?.ho_ten || 'Hệ thống',
-  }))
+  let list = (data || []).map((row) => {
+    const parsedStu = row.user ? parseTenVaTruong(row.user) : null
+    return {
+      id: row.id,
+      loai: row.loai,
+      xp: row.xp,
+      xu: row.xu,
+      ly_do: row.ly_do,
+      thoi_gian: row.thoi_gian,
+      student: row.user
+        ? {
+            ho_ten: row.user.ho_ten || 'Học sinh',
+            lop: row.user.lop || '',
+            truong: parsedStu?.truong || '',
+            ma_dang_nhap: row.user.ma_dang_nhap || '',
+          }
+        : null,
+      tenNguoiTao: row.creator?.ho_ten || 'Hệ thống',
+    }
+  })
 
   if (lop !== 'all') {
     list = list.filter((r) => r.student?.lop === lop)

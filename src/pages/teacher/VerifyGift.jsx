@@ -140,7 +140,7 @@ export default function VerifyGift() {
               <tr>
                 <th>Mã nhận quà</th>
                 <th>Học sinh</th>
-                <th>Lớp</th>
+                <th>Lớp / Trường</th>
                 <th>Món quà</th>
                 <th>Thời gian đổi</th>
                 <th>Trạng thái</th>
@@ -164,6 +164,11 @@ export default function VerifyGift() {
                     </td>
                     <td>
                       <span className="tag tag--grey">{r.student?.lop}</span>
+                      {r.student?.truong && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--ink-600)', marginTop: '2px', fontWeight: 600 }}>
+                          🏫 {r.student.truong}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

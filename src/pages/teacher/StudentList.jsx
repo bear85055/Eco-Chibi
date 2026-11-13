@@ -3,6 +3,7 @@ import { useToast } from '../../context/ToastContext'
 import { usePlayer } from '../../context/PlayerContext'
 import {
   capLaiPinHocSinh,
+  capNhatThongTinHocSinh,
   congDiemThuongHocSinh,
   layDanhSachHocSinh,
   themHocSinhThuCong,
@@ -38,6 +39,12 @@ export default function StudentList() {
   const [pinStudent, setPinStudent] = useState(null)
   const [newPinResult, setNewPinResult] = useState(null)
   const [customPinInput, setCustomPinInput] = useState('')
+
+  // Modal Sửa Thông Tin Học Sinh (Họ tên, Lớp, Trường)
+  const [editStudent, setEditStudent] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editLop, setEditLop] = useState('')
+  const [editTruong, setEditTruong] = useState('')
 
   // Modal Thêm Học Sinh Thủ Công
   const [addStudentModal, setAddStudentModal] = useState(false)
@@ -115,6 +122,37 @@ export default function StudentList() {
     }
   }
 
+  const handleOpenEdit = (student) => {
+    setEditStudent(student)
+    setEditName(student.ho_ten || '')
+    setEditLop(student.lop || '')
+    setEditTruong(student.truong || '')
+  }
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault()
+    if (!editStudent) return
+    if (!editName.trim()) return toast('Vui lòng nhập họ và tên học sinh', 'error')
+    if (!editLop.trim()) return toast('Vui lòng nhập lớp', 'error')
+    if (!editTruong.trim()) return toast('Vui lòng nhập trường học', 'error')
+    setBusy(true)
+    try {
+      await capNhatThongTinHocSinh(editStudent.id, {
+        ho_ten: editName.trim(),
+        lop: editLop.trim().toUpperCase().replace(/\s/g, ''),
+        truong: editTruong.trim(),
+      })
+      sfx.win()
+      toast(`Đã cập nhật thông tin học sinh ${editName.trim()}!`, 'success')
+      setEditStudent(null)
+      load()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleAddStudent = async (e) => {
     e.preventDefault()
     if (!addName.trim()) return toast('Vui lòng nhập họ và tên học sinh', 'error')
@@ -150,7 +188,7 @@ export default function StudentList() {
       <header className="t-header">
         <div className="t-header__title">
           <h1>👥 Quản Lý Học Sinh & Thưởng Nóng</h1>
-          <p>Ghi nhận việc tốt bảo vệ môi trường ngoài đời thực và cấp lại mã PIN khi học sinh quên.</p>
+          <p>Ghi nhận việc tốt bảo vệ môi trường ngoài đời thực và quản lý tài khoản, mật khẩu học sinh.</p>
         </div>
 
         <div className="t-header__stats" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -229,7 +267,8 @@ export default function StudentList() {
               <tr>
                 <th>Học sinh</th>
                 <th>Tên đăng nhập</th>
-                <th>Lớp / Trường</th>
+                <th>Lớp</th>
+                <th>Trường</th>
                 <th>Cấp Chibi</th>
                 <th>XP Tích Lũy</th>
                 <th>Xu Xanh</th>
@@ -255,14 +294,23 @@ export default function StudentList() {
                       <code style={{ color: 'var(--green-700)', fontWeight: 800 }}>{st.ma_dang_nhap}</code>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
-                        <span className="tag tag--grey">{st.lop}</span>
-                        {st.truong && (
-                          <span style={{ fontSize: '0.78rem', color: 'var(--ink-600)', fontWeight: 600 }}>
-                            🏫 {st.truong}
-                          </span>
-                        )}
-                      </div>
+                      <span className="tag tag--grey">{st.lop}</span>
+                    </td>
+                    <td>
+                      {st.truong ? (
+                        <span style={{ fontSize: '0.88rem', color: 'var(--ink-700)', fontWeight: 700 }}>
+                          🏫 {st.truong}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn--sm btn--ghost"
+                          style={{ fontSize: '0.76rem', padding: '4px 8px', color: 'var(--green-700)' }}
+                          onClick={() => handleOpenEdit(st)}
+                        >
+                          ✏️ Nhập trường
+                        </button>
+                      )}
                     </td>
                     <td>
                       <span className="chip chip--green">
@@ -283,6 +331,14 @@ export default function StudentList() {
                           onClick={() => setRewardStudent(st)}
                         >
                           ⭐ Thưởng nóng
+                        </button>
+                        <button
+                          id={`btn-edit-${st.ma_dang_nhap}`}
+                          className="btn btn--sm btn--ghost"
+                          title="Sửa thông tin học sinh (Họ tên, Lớp, Trường)"
+                          onClick={() => handleOpenEdit(st)}
+                        >
+                          ✏️ Sửa
                         </button>
                         <button
                           id={`btn-pin-${st.ma_dang_nhap}`}
@@ -408,7 +464,6 @@ export default function StudentList() {
                     type="text"
                     maxLength={24}
                     className="field__input"
-                    placeholder="VD: 123456"
                     value={customPinInput}
                     onChange={(e) => setCustomPinInput(e.target.value)}
                     style={{ fontWeight: 800, letterSpacing: '1px', textAlign: 'center', fontSize: '1.05rem' }}
@@ -441,6 +496,63 @@ export default function StudentList() {
               )}
             </div>
           </div>
+        )}
+      </Modal>
+
+      {/* Modal Sửa Thông Tin Học Sinh */}
+      <Modal open={!!editStudent} onClose={() => !busy && setEditStudent(null)}>
+        {editStudent && (
+          <form className="modal__content" onSubmit={handleSaveEdit} style={{ width: '100%', maxWidth: '410px', textAlign: 'left', alignItems: 'stretch' }}>
+            <h2 style={{ textAlign: 'center' }}>✏️ Cập Nhật Học Sinh</h2>
+            <p className="modal__text" style={{ textAlign: 'center', marginBottom: '14px' }}>
+              Tên đăng nhập: <b>{editStudent.ma_dang_nhap}</b>
+            </p>
+
+            <label className="field">
+              <span className="field__label">Họ và tên học sinh:</span>
+              <input
+                className="field__input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </label>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '10px', marginTop: '10px' }}>
+              <label className="field">
+                <span className="field__label">Lớp:</span>
+                <input
+                  className="field__input"
+                  style={{ textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase' }}
+                  value={editLop}
+                  disabled={user.vai_tro === 'teacher'}
+                  onChange={(e) => setEditLop(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                  maxLength={10}
+                  required
+                />
+              </label>
+
+              <label className="field">
+                <span className="field__label">Trường:</span>
+                <input
+                  className="field__input"
+                  value={editTruong}
+                  onChange={(e) => setEditTruong(e.target.value)}
+                  maxLength={45}
+                  required
+                />
+              </label>
+            </div>
+
+            <div className="modal__actions" style={{ marginTop: '18px' }}>
+              <button type="button" className="btn btn--ghost" onClick={() => setEditStudent(null)} disabled={busy}>
+                Hủy
+              </button>
+              <button type="submit" className="btn btn--primary" disabled={busy}>
+                {busy ? 'Đang lưu...' : 'Lưu cập nhật'}
+              </button>
+            </div>
+          </form>
         )}
       </Modal>
 

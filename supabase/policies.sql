@@ -11,7 +11,7 @@ ALTER TABLE public.game_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Cấp quyền truy cập bảng và view cho role authenticated
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT SELECT, INSERT ON public.users TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.users TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.rewards TO authenticated;
 GRANT SELECT ON public.redemptions TO authenticated;
 GRANT SELECT ON public.point_logs TO authenticated;
@@ -70,6 +70,12 @@ DROP POLICY IF EXISTS "Admin read all users" ON public.users;
 CREATE POLICY "Admin read all users" ON public.users
   FOR SELECT TO authenticated
   USING ((SELECT public.current_user_role()) = 'admin');
+
+DROP POLICY IF EXISTS "Staff update students" ON public.users;
+CREATE POLICY "Staff update students" ON public.users
+  FOR UPDATE TO authenticated
+  USING ((SELECT public.current_user_role()) IN ('teacher', 'admin'))
+  WITH CHECK ((SELECT public.current_user_role()) IN ('teacher', 'admin'));
 
 DROP POLICY IF EXISTS "Insert user profile" ON public.users;
 DROP POLICY IF EXISTS "Insert own student profile" ON public.users;

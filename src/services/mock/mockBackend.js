@@ -821,6 +821,24 @@ export async function congDiemThuongHocSinh(studentId, { diem, lyDo }) {
   return { success: true, student: publicUser(student) }
 }
 
+/** Cập nhật thông tin học sinh (Họ tên, Lớp, Trường) */
+export async function capNhatThongTinHocSinh(studentId, { ho_ten, lop, truong }) {
+  await delay(200)
+  const db = load()
+  const staff = requireStaff(db)
+  const student = db.users.find((u) => u.id === studentId && u.vai_tro === 'student')
+  if (!student) throw new ApiError('Không tìm thấy học sinh.')
+  if (staff.vai_tro === 'teacher' && student.lop !== staff.lop) {
+    throw new ApiError(`Bạn chỉ có quyền thao tác học sinh lớp ${staff.lop}.`)
+  }
+  student.ho_ten = ho_ten.trim()
+  student.ten_hien_thi = tenRutGon(ho_ten)
+  student.lop = lop.trim().toUpperCase().replace(/\s/g, '')
+  student.truong = (truong || '').trim()
+  save(db)
+  return publicUser(student)
+}
+
 /** Cấp lại PIN 4 số cho học sinh */
 export async function capLaiPinHocSinh(studentId, customPin) {
   await delay(200)

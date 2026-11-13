@@ -78,7 +78,7 @@ export default function PointHistory() {
               <tr>
                 <th>Thời gian</th>
                 <th>Học sinh</th>
-                <th>Lớp</th>
+                <th>Lớp / Trường</th>
                 <th>Loại giao dịch</th>
                 <th>Biến động XP</th>
                 <th>Biến động Xu</th>
@@ -98,6 +98,11 @@ export default function PointHistory() {
                     </td>
                     <td>
                       <span className="tag tag--grey">{l.student?.lop}</span>
+                      {l.student?.truong && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--ink-600)', marginTop: '2px', fontWeight: 600 }}>
+                          🏫 {l.student.truong}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className={`chip ${conf.chip}`}>{conf.label}</span>
