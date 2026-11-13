@@ -1,6 +1,13 @@
-import { supabase } from './supabaseClient'
+import { createTempAuthClient, supabase } from './supabaseClient'
 import * as mock from './mock/mockBackend'
-import { getPinCache, layThongTinToi, savePinCache } from './authService'
+import {
+  encodeTenVaTruong,
+  getPinCache,
+  layThongTinToi,
+  parseTenVaTruong,
+  sanitizeUsername,
+  savePinCache,
+} from './authService'
 
 export async function layDanhSachDuyetQua({ lop = 'all', tuKhoa = '', trangThai = 'all' } = {}) {
   if (!supabase) {
@@ -165,10 +172,15 @@ export async function layDanhSachHocSinh({ lop = 'all', tuKhoa = '' } = {}) {
   const { data, error } = await query
   if (error) throw new Error(error.message || 'Không thể tải danh sách học sinh.')
 
-  let items = (data || []).map((u) => ({
-    ...u,
-    pin: getPinCache(u.id) || u.pin || '1234',
-  }))
+  let items = (data || []).map((u) => {
+    const parsed = parseTenVaTruong(u)
+    return {
+      ...u,
+      ten_hien_thi: parsed.ten_hien_thi,
+      truong: parsed.truong || '',
+      pin: getPinCache(u.id) || u.pin || '1234',
+    }
+  })
   const filterLop = staff?.vai_tro === 'teacher' ? staff.lop : lop
   if (filterLop !== 'all') {
     items = items.filter((u) => u.lop === filterLop)
@@ -179,7 +191,8 @@ export async function layDanhSachHocSinh({ lop = 'all', tuKhoa = '' } = {}) {
     items = items.filter(
       (u) =>
         u.ho_ten?.toUpperCase().includes(q) ||
-        u.ma_dang_nhap?.toUpperCase().includes(q),
+        u.ma_dang_nhap?.toUpperCase().includes(q) ||
+        u.truong?.toUpperCase().includes(q),
     )
   }
 
@@ -212,7 +225,7 @@ export async function congDiemThuongHocSinh(studentId, { diem, lyDo }) {
 
 export async function capLaiPinHocSinh(studentId, customPin) {
   const newPin =
-    customPin && /^\d{4}$/.test(String(customPin).trim())
+    customPin && String(customPin).trim().length >= 4
       ? String(customPin).trim()
       : String(Math.floor(1000 + Math.random() * 9000))
 
@@ -250,7 +263,7 @@ export async function capLaiPinHocSinh(studentId, customPin) {
         return { success: true, newPin, student: st }
       }
     }
-    throw new Error(error.message || 'Không thể cấp lại mã PIN cho học sinh.')
+    throw new Error(error.message || 'Không thể cấp lại mật khẩu cho học sinh.')
   }
 
   const finalPin = data?.new_pin || newPin
@@ -258,32 +271,106 @@ export async function capLaiPinHocSinh(studentId, customPin) {
   return { success: true, newPin: finalPin, student: data }
 }
 
-export async function themHocSinhThuCong({ ho_ten, lop, pin = '1234' }) {
+export async function themHocSinhThuCong({ ho_ten, lop, truong = '', ten_dang_nhap = '', pin = '1234' }) {
   if (!supabase) {
-    return mock.themHocSinhThuCong({ ho_ten, lop, pin })
+    return mock.themHocSinhThuCong({ ho_ten, lop, truong, ten_dang_nhap, pin })
   }
 
   await layThongTinToi()
 
+  const cleanHoTen = (ho_ten || '').trim()
   const cleanLop = (lop || '').trim().toUpperCase().replace(/\s/g, '')
-  const cleanPin = pin.trim()
+  const cleanTruong = (truong || '').trim()
+  const cleanPin = (pin || '').trim()
 
-  const { data, error } = await supabase.rpc('tao_hoc_sinh_moi', {
-    p_ho_ten: ho_ten.trim(),
-    p_lop: cleanLop,
-    p_pin: cleanPin,
+  if (!cleanHoTen) throw new Error('Vui lòng nhập họ và tên học sinh.')
+  if (!cleanLop) throw new Error('Vui lòng nhập lớp học.')
+  if (!cleanTruong) throw new Error('Vui lòng nhập trường học.')
+  if (cleanPin.length < 4) throw new Error('Mật khẩu cần có ít nhất 4 ký tự.')
+
+  const randomSuffix = Math.floor(10 + Math.random() * 90)
+  const cleanUsername = ten_dang_nhap
+    ? sanitizeUsername(ten_dang_nhap)
+    : sanitizeUsername(`hs${cleanLop}${randomSuffix}`)
+
+  if (!cleanUsername || cleanUsername.length < 3) {
+    throw new Error('Tên đăng nhập cần có ít nhất 3 ký tự (chữ không dấu hoặc số).')
+  }
+  if (cleanUsername === 'admin' || cleanUsername === 'administrator') {
+    throw new Error('Tên đăng nhập này dành riêng cho quản trị viên.')
+  }
+
+  const tempClient = createTempAuthClient()
+  const email = `${cleanUsername}@ecochibi.local`
+  const password = `eco-${cleanPin}`
+  const encodedTenHienThi = encodeTenVaTruong(cleanHoTen, cleanTruong)
+
+  const { data: authData, error: authError } = await tempClient.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        ma_dang_nhap: cleanUsername,
+        pin: cleanPin,
+        ho_ten: cleanHoTen,
+        ten_hien_thi: encodedTenHienThi,
+        lop: cleanLop,
+        truong: cleanTruong,
+      },
+    },
   })
 
-  if (error) {
-    throw new Error(error.message || 'Không thể tạo tài khoản học sinh mới.')
+  if (authError) {
+    const msg = authError.message?.toLowerCase() || ''
+    if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('duplicate')) {
+      throw new Error('Tên đăng nhập này đã tồn tại, vui lòng chọn tên đăng nhập khác.')
+    }
+    throw new Error(authError.message || 'Không thể tạo tài khoản học sinh mới.')
   }
 
-  if (data?.id) {
-    savePinCache(data.id, cleanPin)
+  const newUid = authData?.user?.id
+  let { data: profile } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', newUid)
+    .maybeSingle()
+
+  if (!profile && newUid) {
+    const { data: inserted } = await supabase
+      .from('users')
+      .insert([
+        {
+          id: newUid,
+          ma_dang_nhap: cleanUsername,
+          ho_ten: cleanHoTen,
+          ten_hien_thi: encodedTenHienThi,
+          lop: cleanLop,
+          vai_tro: 'student',
+          diem_hien_co: 50,
+          tong_diem_tich_luy: 0,
+        },
+      ])
+      .select()
+      .maybeSingle()
+    profile = inserted
   }
+
+  if (newUid) {
+    savePinCache(newUid, cleanPin)
+  }
+
+  const parsed = parseTenVaTruong(profile || { ten_hien_thi: encodedTenHienThi, truong: cleanTruong })
 
   return {
-    ...data,
+    id: newUid,
+    ma_dang_nhap: cleanUsername,
+    ho_ten: cleanHoTen,
+    ten_hien_thi: parsed.ten_hien_thi,
+    lop: cleanLop,
+    truong: cleanTruong,
+    vai_tro: 'student',
+    diem_hien_co: 50,
+    tong_diem_tich_luy: 0,
     pin: cleanPin,
   }
 }

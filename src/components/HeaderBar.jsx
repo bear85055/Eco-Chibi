@@ -11,7 +11,10 @@ export default function HeaderBar() {
         <img src={lv.img} alt="" className="header-bar__avatar" />
         <div>
           <div className="header-bar__name">{user.ten_hien_thi}</div>
-          <div className="header-bar__sub">Lớp {user.lop} · Cấp {lv.cap}</div>
+          <div className="header-bar__sub">
+            Lớp {user.lop}
+            {user.truong ? ` · ${user.truong}` : ''} · Cấp {lv.cap}
+          </div>
         </div>
       </Link>
       <div className="coin-pill" id="coin-balance" title="Xu Xanh">

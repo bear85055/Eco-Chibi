@@ -1,6 +1,42 @@
 import { supabase } from './supabaseClient'
 import * as mock from './mock/mockBackend'
 
+export function sanitizeUsername(str) {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, '')
+    .slice(0, 28)
+}
+
+export function encodeTenVaTruong(hoTen, truong) {
+  const cleanHoTen = (hoTen || '').trim()
+  const parts = cleanHoTen.split(/\s+/)
+  const tenRutGon = parts.length < 2 ? cleanHoTen : `${parts.slice(1).join(' ')} ${parts[0][0]}.`
+  const cleanTruong = (truong || '').trim()
+  if (!cleanTruong) return tenRutGon.slice(0, 64)
+  return `${tenRutGon} • ${cleanTruong}`.slice(0, 64)
+}
+
+export function parseTenVaTruong(u) {
+  if (!u) return { ten_hien_thi: '', truong: '' }
+  const raw = u.ten_hien_thi || u.ho_ten || ''
+  if (u.truong) {
+    return {
+      ten_hien_thi: raw.includes(' • ') ? raw.split(' • ')[0].trim() : raw,
+      truong: u.truong,
+    }
+  }
+  if (raw.includes(' • ')) {
+    const [ten, ...rest] = raw.split(' • ')
+    return { ten_hien_thi: ten.trim(), truong: rest.join(' • ').trim() }
+  }
+  return { ten_hien_thi: raw, truong: '' }
+}
+
 export function formatUser(u) {
   if (!u) return null
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
@@ -8,8 +44,9 @@ export function formatUser(u) {
   const diemKiem = isToday ? (u.diem_kiem_hom_nay || 0) : 0
   const conLai = Math.max(0, 30 - diemKiem)
 
+  const parsed = parseTenVaTruong(u)
   const ho_ten = u.vai_tro === 'admin' ? 'Admin' : u.ho_ten
-  const ten_hien_thi = u.vai_tro === 'admin' ? 'Admin' : u.ten_hien_thi
+  const ten_hien_thi = u.vai_tro === 'admin' ? 'Admin' : parsed.ten_hien_thi
 
   return {
     id: u.id,
@@ -17,6 +54,7 @@ export function formatUser(u) {
     ho_ten,
     ten_hien_thi,
     lop: u.lop,
+    truong: parsed.truong || '',
     vai_tro: u.vai_tro,
     diem_hien_co: u.diem_hien_co,
     tong_diem_tich_luy: u.tong_diem_tich_luy,
@@ -84,12 +122,16 @@ export async function dangNhap(ma, pin) {
     return mock.dangNhap(ma, pin)
   }
 
-  const cleanMa = ma.trim().toLowerCase()
-  const cleanPin = pin.trim()
+  const cleanMa = sanitizeUsername(ma)
+  const cleanPin = (pin || '').trim()
+
+  if (!cleanMa) {
+    throw new Error('Vui lòng nhập tên đăng nhập.')
+  }
 
   if (cleanMa === 'admin') {
     if (cleanPin !== ADMIN_SECRET) {
-      throw new Error('Mã đăng nhập hoặc mật khẩu Admin chưa chính xác.')
+      throw new Error('Tài khoản hoặc mật khẩu Admin chưa chính xác.')
     }
 
     const adminEmail = 'admin.portal@ecochibi.local'
@@ -138,19 +180,33 @@ export async function dangNhap(ma, pin) {
   }
 
   const email = `${cleanMa}@ecochibi.local`
-  const password = cleanPin.length >= 6 ? cleanPin : `eco-${cleanPin}`
+  const primaryPassword = `eco-${cleanPin}`
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+  let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email,
-    password,
+    password: primaryPassword,
   })
+
+  // Tương thích ngược nếu mật khẩu >= 6 ký tự từng lưu không có tiền tố eco-
+  if (authError && cleanPin.length >= 6) {
+    const retryRes = await supabase.auth.signInWithPassword({
+      email,
+      password: cleanPin,
+    })
+    if (!retryRes.error && retryRes.data?.user) {
+      authData = retryRes.data
+      authError = null
+    }
+  }
 
   if (authError) {
     if (authError.message?.toLowerCase().includes('invalid login credentials')) {
-      throw new Error('Mã đăng nhập hoặc mật khẩu/PIN chưa chính xác.')
+      throw new Error('Tên đăng nhập hoặc mật khẩu chưa chính xác.')
     }
     throw new Error(authError.message || 'Đăng nhập không thành công.')
   }
+
+  savePinCache(authData.user.id, cleanPin)
 
   const { data: profile, error: profileError } = await supabase
     .from('users')
@@ -165,88 +221,115 @@ export async function dangNhap(ma, pin) {
   return formatUser(profile)
 }
 
-export async function dangKyHocSinh({ ho_ten, lop, pin }) {
+export async function dangKyHocSinh({ ho_ten, lop, truong = '', ten_dang_nhap = '', pin }) {
   if (!supabase) {
-    return mock.dangKyHocSinh({ ho_ten, lop, pin })
+    return mock.dangKyHocSinh({ ho_ten, lop, truong, ten_dang_nhap, pin })
   }
 
-  // Trên Supabase: sinh mã ngẫu nhiên và đăng ký Auth
-  const cleanPin = pin.trim()
+  const cleanHoTen = (ho_ten || '').trim()
   const cleanLop = (lop || '').trim().toUpperCase().replace(/\s/g, '')
-  const randomSuffix = Math.floor(10 + Math.random() * 90)
-  const ma = `HS${cleanLop}${randomSuffix}`
-  const email = `${ma.toLowerCase()}@ecochibi.local`
-  const password = `eco-${cleanPin}`
+  const cleanTruong = (truong || '').trim()
+  const cleanPin = (pin || '').trim()
 
-  const parts = ho_ten.trim().split(/\s+/)
-  const tenHienThi = parts.length < 2 ? ho_ten.trim() : `${parts.slice(1).join(' ')} ${parts[0][0]}.`
+  if (!cleanHoTen) throw new Error('Vui lòng nhập họ và tên của em.')
+  if (!cleanLop) throw new Error('Vui lòng nhập lớp của em.')
+  if (!cleanTruong) throw new Error('Vui lòng nhập tên trường của em.')
+  if (cleanPin.length < 4) throw new Error('Mật khẩu cần có ít nhất 4 ký tự.')
+
+  const randomSuffix = Math.floor(10 + Math.random() * 90)
+  const cleanUsername = ten_dang_nhap
+    ? sanitizeUsername(ten_dang_nhap)
+    : sanitizeUsername(`hs${cleanLop}${randomSuffix}`)
+
+  if (!cleanUsername || cleanUsername.length < 3) {
+    throw new Error('Tên đăng nhập cần có ít nhất 3 ký tự (chữ không dấu hoặc số).')
+  }
+  if (cleanUsername === 'admin' || cleanUsername === 'administrator') {
+    throw new Error('Tên đăng nhập này dành riêng cho quản trị viên, em hãy chọn tên khác nhé!')
+  }
+
+  const email = `${cleanUsername}@ecochibi.local`
+  const password = `eco-${cleanPin}`
+  const encodedTenHienThi = encodeTenVaTruong(cleanHoTen, cleanTruong)
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        ma_dang_nhap: ma,
+        ma_dang_nhap: cleanUsername,
         pin: cleanPin,
-        ho_ten: ho_ten.trim(),
-        ten_hien_thi: tenHienThi,
+        ho_ten: cleanHoTen,
+        ten_hien_thi: encodedTenHienThi,
         lop: cleanLop,
+        truong: cleanTruong,
       },
     },
   })
 
   if (authError) {
+    const msg = authError.message?.toLowerCase() || ''
+    if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('duplicate')) {
+      throw new Error('Tên đăng nhập này đã có bạn sử dụng rồi, em hãy chọn tên đăng nhập khác nhé!')
+    }
     throw new Error(authError.message || 'Không thể tạo tài khoản mới.')
   }
 
-  let { data: profile, error: insertError } = await supabase
+  // Kiểm tra xem trigger handle_new_auth_user đã tự động tạo dòng trong public.users chưa
+  let { data: profile } = await supabase
     .from('users')
-    .upsert(
-      [
+    .select('*')
+    .eq('id', authData.user.id)
+    .maybeSingle()
+
+  if (!profile) {
+    let { data: inserted, error: insertError } = await supabase
+      .from('users')
+      .insert([
         {
           id: authData.user.id,
-          ma_dang_nhap: ma,
+          ma_dang_nhap: cleanUsername,
           pin: cleanPin,
-          ho_ten: ho_ten.trim(),
-          ten_hien_thi: tenHienThi,
+          ho_ten: cleanHoTen,
+          ten_hien_thi: encodedTenHienThi,
           lop: cleanLop,
           vai_tro: 'student',
           diem_hien_co: 50,
           tong_diem_tich_luy: 0,
         },
-      ],
-      { onConflict: 'id' },
-    )
-    .select()
-    .single()
+      ])
+      .select()
+      .single()
 
-  // Fallback nếu bảng users trên Supabase chưa chạy lệnh thêm cột pin
-  if (insertError) {
-    const retry = await supabase
-      .from('users')
-      .upsert(
-        [
+    if (insertError) {
+      const retry = await supabase
+        .from('users')
+        .insert([
           {
             id: authData.user.id,
-            ma_dang_nhap: ma,
-            ho_ten: ho_ten.trim(),
-            ten_hien_thi: tenHienThi,
+            ma_dang_nhap: cleanUsername,
+            ho_ten: cleanHoTen,
+            ten_hien_thi: encodedTenHienThi,
             lop: cleanLop,
             vai_tro: 'student',
             diem_hien_co: 50,
             tong_diem_tich_luy: 0,
           },
-        ],
-        { onConflict: 'id' },
-      )
-      .select()
-      .single()
-    profile = retry.data
-    insertError = retry.error
-  }
+        ])
+        .select()
+        .single()
+      inserted = retry.data
+      insertError = retry.error
+    }
 
-  if (insertError) {
-    throw new Error(insertError.message || 'Không thể lưu hồ sơ học sinh.')
+    if (insertError) {
+      const errMsg = insertError.message?.toLowerCase() || ''
+      if (errMsg.includes('duplicate') || errMsg.includes('unique')) {
+        throw new Error('Tên đăng nhập này đã có bạn sử dụng rồi, em hãy chọn tên đăng nhập khác nhé!')
+      }
+      throw new Error(insertError.message || 'Không thể lưu hồ sơ học sinh.')
+    }
+    profile = inserted
   }
 
   savePinCache(authData.user.id, cleanPin)

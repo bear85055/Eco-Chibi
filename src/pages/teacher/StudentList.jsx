@@ -7,6 +7,7 @@ import {
   layDanhSachHocSinh,
   themHocSinhThuCong,
 } from '../../services/teacherService'
+import { sanitizeUsername } from '../../services/authService'
 import { getLevel } from '../../utils/levels'
 import Modal from '../../components/Modal'
 import { sfx } from '../../utils/sfx'
@@ -42,6 +43,8 @@ export default function StudentList() {
   const [addStudentModal, setAddStudentModal] = useState(false)
   const [addName, setAddName] = useState('')
   const [addLop, setAddLop] = useState(user.vai_tro === 'teacher' ? user.lop : '3A')
+  const [addTruong, setAddTruong] = useState('')
+  const [addUsername, setAddUsername] = useState('')
   const [addPin, setAddPin] = useState('1234')
   const [addResult, setAddResult] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -86,16 +89,16 @@ export default function StudentList() {
   const handleResetPin = async (student) => {
     setPinStudent(student)
     setNewPinResult(null)
-    setCustomPinInput(String(Math.floor(1000 + Math.random() * 9000)))
+    setCustomPinInput(student.pin || '1234')
   }
 
   const confirmResetPin = async () => {
-    if (customPinInput && !/^\d{4}$/.test(customPinInput)) {
-      return toast('Mã PIN mới phải gồm đúng 4 chữ số!', 'error')
+    if (!customPinInput || customPinInput.trim().length < 4) {
+      return toast('Mật khẩu mới cần có ít nhất 4 ký tự!', 'error')
     }
     setBusy(true)
     try {
-      const res = await capLaiPinHocSinh(pinStudent.id, customPinInput)
+      const res = await capLaiPinHocSinh(pinStudent.id, customPinInput.trim())
       setNewPinResult(res.newPin)
       setPinStudent((prev) => (prev ? { ...prev, pin: res.newPin } : prev))
       setData((prev) => ({
@@ -103,7 +106,7 @@ export default function StudentList() {
         items: prev.items.map((it) => (it.id === pinStudent.id ? { ...it, pin: res.newPin } : it)),
       }))
       sfx.win()
-      toast(`Đã đổi mã PIN mới (${res.newPin}) cho em ${pinStudent.ho_ten}!`, 'success')
+      toast(`Đã đổi mật khẩu mới (${res.newPin}) cho em ${pinStudent.ho_ten}!`, 'success')
       load()
     } catch (err) {
       toast(err.message, 'error')
@@ -116,13 +119,20 @@ export default function StudentList() {
     e.preventDefault()
     if (!addName.trim()) return toast('Vui lòng nhập họ và tên học sinh', 'error')
     if (!addLop.trim()) return toast('Vui lòng nhập lớp', 'error')
-    if (addPin.length !== 4) return toast('Mã PIN phải gồm đúng 4 chữ số', 'error')
+    if (!addTruong.trim()) return toast('Vui lòng nhập trường học', 'error')
+    const cleanUser = sanitizeUsername(addUsername)
+    if (!cleanUser || cleanUser.length < 3) {
+      return toast('Tên đăng nhập cần từ 3 ký tự trở lên (chữ không dấu hoặc số)', 'error')
+    }
+    if (addPin.trim().length < 4) return toast('Mật khẩu phải có ít nhất 4 ký tự', 'error')
     setBusy(true)
     try {
       const newStu = await themHocSinhThuCong({
         ho_ten: addName.trim(),
         lop: addLop.trim().toUpperCase().replace(/\s/g, ''),
-        pin: addPin,
+        truong: addTruong.trim(),
+        ten_dang_nhap: cleanUser,
+        pin: addPin.trim(),
       })
       sfx.win()
       toast(`Đã thêm thành công học sinh ${newStu.ho_ten}!`, 'success')
@@ -153,6 +163,8 @@ export default function StudentList() {
               setAddResult(null)
               setAddName('')
               setAddLop(user.vai_tro === 'teacher' ? user.lop : '3A')
+              setAddTruong('')
+              setAddUsername('')
               setAddPin('1234')
               setCopied(false)
               setAddStudentModal(true)
@@ -173,7 +185,7 @@ export default function StudentList() {
           <input
             id="search-student"
             type="text"
-            placeholder="Tìm theo tên học sinh hoặc Mã HS..."
+            placeholder="Tìm theo họ tên, trường hoặc tên đăng nhập..."
             value={tuKhoa}
             onChange={(e) => setTuKhoa(e.target.value)}
           />
@@ -216,8 +228,8 @@ export default function StudentList() {
             <thead>
               <tr>
                 <th>Học sinh</th>
-                <th>Mã HS</th>
-                <th>Lớp</th>
+                <th>Tên đăng nhập</th>
+                <th>Lớp / Trường</th>
                 <th>Cấp Chibi</th>
                 <th>XP Tích Lũy</th>
                 <th>Xu Xanh</th>
@@ -243,7 +255,14 @@ export default function StudentList() {
                       <code style={{ color: 'var(--green-700)', fontWeight: 800 }}>{st.ma_dang_nhap}</code>
                     </td>
                     <td>
-                      <span className="tag tag--grey">{st.lop}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                        <span className="tag tag--grey">{st.lop}</span>
+                        {st.truong && (
+                          <span style={{ fontSize: '0.78rem', color: 'var(--ink-600)', fontWeight: 600 }}>
+                            🏫 {st.truong}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <span className="chip chip--green">
@@ -268,10 +287,10 @@ export default function StudentList() {
                         <button
                           id={`btn-pin-${st.ma_dang_nhap}`}
                           className="btn btn--sm btn--ghost"
-                          title="Cấp lại mã PIN"
+                          title="Đổi / Cấp lại mật khẩu"
                           onClick={() => handleResetPin(st)}
                         >
-                          🔑 PIN: {st.pin || '1234'}
+                          🔑 MK: {st.pin || '1234'}
                         </button>
                       </div>
                     </td>
@@ -352,27 +371,27 @@ export default function StudentList() {
         )}
       </Modal>
 
-      {/* Modal Cấp Lại PIN */}
+      {/* Modal Cấp Lại Mật Khẩu */}
       <Modal open={!!pinStudent} onClose={() => setPinStudent(null)}>
         {pinStudent && (
           <div className="modal__content">
-            <h2>🔑 Quản Lý Mã PIN</h2>
+            <h2>🔑 Quản Lý Mật Khẩu</h2>
             <p className="modal__text">
-              Học sinh: <b>{pinStudent.ho_ten}</b> ({pinStudent.ma_dang_nhap} - Lớp {pinStudent.lop})
+              Học sinh: <b>{pinStudent.ho_ten}</b> (Tên ĐN: <b>{pinStudent.ma_dang_nhap}</b> - Lớp {pinStudent.lop})
             </p>
 
             <div style={{ margin: '14px 0', padding: '14px', background: 'var(--mint-50)', borderRadius: '16px', width: '100%' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--ink-600)', fontWeight: 700 }}>
-                {newPinResult ? '✅ Mã PIN mới đã được cấp thành công:' : 'Mã PIN hiện tại của em:'}
+                {newPinResult ? '✅ Mật khẩu mới đã được lưu thành công:' : 'Mật khẩu hiện tại của em:'}
               </div>
               <div
                 id="pin-display"
                 style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: '2.4rem',
+                  fontSize: '2.1rem',
                   fontWeight: 800,
                   color: 'var(--green-700)',
-                  letterSpacing: '4px',
+                  letterSpacing: '2px',
                   marginTop: '4px',
                 }}
               >
@@ -382,18 +401,17 @@ export default function StudentList() {
 
             {!newPinResult && (
               <div className="field" style={{ width: '100%', textAlign: 'left', marginBottom: '12px' }}>
-                <span className="field__label">Nhập mã PIN 4 số mới (hoặc bấm Ngẫu nhiên):</span>
+                <span className="field__label">Nhập mật khẩu mới (tối thiểu 4 ký tự):</span>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                   <input
                     id="custom-pin-input"
                     type="text"
-                    inputMode="numeric"
-                    maxLength={4}
+                    maxLength={24}
                     className="field__input"
-                    placeholder="VD: 5678"
+                    placeholder="VD: 123456"
                     value={customPinInput}
-                    onChange={(e) => setCustomPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    style={{ fontWeight: 800, letterSpacing: '3px', textAlign: 'center', fontSize: '1.1rem' }}
+                    onChange={(e) => setCustomPinInput(e.target.value)}
+                    style={{ fontWeight: 800, letterSpacing: '1px', textAlign: 'center', fontSize: '1.05rem' }}
                   />
                   <button
                     type="button"
@@ -416,9 +434,9 @@ export default function StudentList() {
                   id="btn-generate-pin"
                   className="btn btn--primary"
                   onClick={confirmResetPin}
-                  disabled={busy || customPinInput.trim().length !== 4}
+                  disabled={busy || customPinInput.trim().length < 4}
                 >
-                  {busy ? 'Đang lưu...' : `Đổi sang PIN ${customPinInput || '....'}`}
+                  {busy ? 'Đang lưu...' : `Đổi mật khẩu mới`}
                 </button>
               )}
             </div>
@@ -431,7 +449,7 @@ export default function StudentList() {
         <div className="modal__content" style={{ width: '100%', maxWidth: '420px', textAlign: 'left' }}>
           <h2>➕ Thêm Học Sinh Mới</h2>
           <p className="modal__text" style={{ marginBottom: '14px' }}>
-            Tạo tài khoản học sinh nhanh mà không cần danh sách toàn trường.
+            Tạo tài khoản học sinh với đầy đủ thông tin trường, lớp và tên đăng nhập.
           </p>
 
           {!addResult ? (
@@ -449,7 +467,7 @@ export default function StudentList() {
                 />
               </label>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '10px', marginTop: '10px' }}>
                 <label className="field">
                   <span className="field__label">Lớp:</span>
                   <input
@@ -460,21 +478,52 @@ export default function StudentList() {
                     value={addLop}
                     disabled={user.vai_tro === 'teacher'}
                     onChange={(e) => setAddLop(e.target.value.toUpperCase().replace(/\s/g, ''))}
-                    maxLength={6}
+                    maxLength={10}
                     required
                   />
                 </label>
 
                 <label className="field">
-                  <span className="field__label">Mã PIN (4 số):</span>
+                  <span className="field__label">Trường:</span>
+                  <input
+                    id="add-student-school"
+                    className="field__input"
+                    style={{ textAlign: 'left', padding: '10px 12px', fontSize: '1rem' }}
+                    placeholder="VD: TH Kim Đồng"
+                    value={addTruong}
+                    onChange={(e) => setAddTruong(e.target.value)}
+                    maxLength={45}
+                    required
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '10px', marginTop: '10px' }}>
+                <label className="field">
+                  <span className="field__label">Tên đăng nhập:</span>
+                  <input
+                    id="add-student-username"
+                    className="field__input"
+                    style={{ textAlign: 'left', padding: '10px 12px', fontSize: '1rem', fontWeight: 700 }}
+                    placeholder="VD: hoanglong3a"
+                    value={addUsername}
+                    onChange={(e) => setAddUsername(sanitizeUsername(e.target.value))}
+                    maxLength={28}
+                    required
+                  />
+                </label>
+
+                <label className="field">
+                  <span className="field__label">Mật khẩu:</span>
                   <input
                     id="add-student-pin"
                     type="text"
-                    maxLength={4}
+                    maxLength={24}
                     className="field__input"
-                    style={{ textAlign: 'center', padding: '10px', fontSize: '1.1rem', letterSpacing: '2px' }}
+                    style={{ textAlign: 'center', padding: '10px', fontSize: '1rem' }}
+                    placeholder="VD: 1234"
                     value={addPin}
-                    onChange={(e) => setAddPin(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => setAddPin(e.target.value)}
                     required
                   />
                 </label>
@@ -504,9 +553,9 @@ export default function StudentList() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #d1fae5', paddingBottom: '6px' }}>
                   <div>
                     <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#047857', fontWeight: '800' }}>
-                      MÃ HỌC SINH MỚI TẠO
+                      TÊN ĐĂNG NHẬP MỚI TẠO
                     </span>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#065f46', letterSpacing: '1px' }}>
+                    <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#065f46', letterSpacing: '0.5px' }}>
                       {addResult.ma_dang_nhap}
                     </div>
                   </div>
@@ -516,10 +565,10 @@ export default function StudentList() {
                     className="btn btn--sm btn--ghost"
                     style={{ fontSize: '0.8rem', padding: '6px 10px', background: '#fff', border: '1px solid #a7f3d0' }}
                     onClick={() => {
-                      const textToCopy = `Tài khoản Eco Chibi:\nMã HS: ${addResult.ma_dang_nhap}\nPIN: ${addResult.pin}\nLớp: ${addResult.lop}\nHọc sinh: ${addResult.ho_ten}`
+                      const textToCopy = `Tài khoản Eco Chibi:\nTên đăng nhập: ${addResult.ma_dang_nhap}\nMật khẩu: ${addResult.pin}\nHọc sinh: ${addResult.ho_ten}\nLớp: ${addResult.lop}${addResult.truong ? ` - Trường: ${addResult.truong}` : ''}`
                       navigator.clipboard?.writeText(textToCopy)
                       setCopied(true)
-                      toast('Đã chép thông tin thẻ học sinh!', 'success')
+                      toast('Đã chép thông tin tài khoản học sinh!', 'success')
                       setTimeout(() => setCopied(false), 2000)
                     }}
                   >
@@ -529,7 +578,8 @@ export default function StudentList() {
 
                 <div style={{ fontSize: '0.88rem', color: '#374151', lineHeight: '1.6' }}>
                   <div>Họ tên: <b>{addResult.ho_ten}</b></div>
-                  <div>Lớp: <b>{addResult.lop}</b> · PIN: <b>{addResult.pin}</b></div>
+                  <div>Lớp: <b>{addResult.lop}</b>{addResult.truong ? <> · Trường: <b>{addResult.truong}</b></> : null}</div>
+                  <div>Mật khẩu: <b>{addResult.pin}</b></div>
                 </div>
               </div>
 
@@ -541,6 +591,7 @@ export default function StudentList() {
                   onClick={() => {
                     setAddResult(null)
                     setAddName('')
+                    setAddUsername('')
                   }}
                 >
                   ➕ Thêm tiếp em khác

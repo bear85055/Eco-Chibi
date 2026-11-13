@@ -278,19 +278,19 @@ function log(db, entry) {
 export async function dangNhap(maDangNhap, pin) {
   await delay(120)
   const db = load()
-  const cleanMa = (maDangNhap || '').trim().toUpperCase()
+  const cleanMa = (maDangNhap || '').trim().toLowerCase()
   const cleanPin = (pin || '').trim()
 
-  let user = db.users.find((u) => u.ma_dang_nhap === cleanMa)
+  let user = db.users.find((u) => (u.ma_dang_nhap || '').toLowerCase() === cleanMa)
   // Hỗ trợ linh hoạt cho học sinh mẫu HS001 / HS3A01
-  if (!user && cleanMa === 'HS3A01') {
-    user = db.users.find((u) => u.ma_dang_nhap === 'HS001')
+  if (!user && cleanMa === 'hs3a01') {
+    user = db.users.find((u) => (u.ma_dang_nhap || '').toLowerCase() === 'hs001')
   }
-  if (!user && cleanMa === 'HS001') {
-    user = db.users.find((u) => u.ma_dang_nhap === 'HS3A01' || u.id === 'student-hs001')
+  if (!user && cleanMa === 'hs001') {
+    user = db.users.find((u) => (u.ma_dang_nhap || '').toLowerCase() === 'hs3a01' || u.id === 'student-hs001')
   }
   // Hỗ trợ đăng nhập Admin
-  if (!user && (cleanMa === 'ADMIN' || cleanMa === 'ADMINISTRATOR')) {
+  if (!user && (cleanMa === 'admin' || cleanMa === 'administrator')) {
     user = db.users.find((u) => u.vai_tro === 'admin')
   }
 
@@ -305,7 +305,7 @@ export async function dangNhap(maDangNhap, pin) {
   }
 
   if (!user || !isMatch) {
-    throw new ApiError('Mã đăng nhập hoặc mật khẩu/PIN chưa chính xác.')
+    throw new ApiError('Tên đăng nhập hoặc mật khẩu chưa chính xác.')
   }
   localStorage.setItem(SESSION_KEY, user.id)
   resetDaily(user)
@@ -314,23 +314,30 @@ export async function dangNhap(maDangNhap, pin) {
 }
 
 /** Đăng ký tài khoản học sinh mới */
-export async function dangKyHocSinh({ ho_ten, lop, pin = '1234' }) {
+export async function dangKyHocSinh({ ho_ten, lop, truong = '', ten_dang_nhap = '', pin = '1234' }) {
   await delay(300)
   if (!ho_ten?.trim()) throw new ApiError('Vui lòng nhập họ và tên của em.')
   if (!lop?.trim()) throw new ApiError('Vui lòng chọn hoặc nhập lớp.')
-  if (!/^\d{4}$/.test(pin)) throw new ApiError('Mã PIN phải gồm đúng 4 chữ số.')
+  if (!truong?.trim()) throw new ApiError('Vui lòng nhập trường của em.')
+  if ((pin || '').trim().length < 4) throw new ApiError('Mật khẩu cần có ít nhất 4 ký tự.')
 
   const db = load()
-  const cleanLop = lop.trim().toUpperCase()
-  const ma_dang_nhap = sinhMaHocSinh(db, cleanLop)
+  const cleanLop = lop.trim().toUpperCase().replace(/\s/g, '')
+  const cleanTruong = truong.trim()
+  const cleanUsername = (ten_dang_nhap || '').trim().toLowerCase().replace(/\s+/g, '') || sinhMaHocSinh(db, cleanLop).toLowerCase()
+
+  if (db.users.some((u) => (u.ma_dang_nhap || '').toLowerCase() === cleanUsername)) {
+    throw new ApiError('Tên đăng nhập này đã có bạn sử dụng rồi, em hãy chọn tên đăng nhập khác nhé!')
+  }
 
   const newUser = {
     id: uid(),
-    ma_dang_nhap,
-    pin,
+    ma_dang_nhap: cleanUsername,
+    pin: pin.trim(),
     ho_ten: ho_ten.trim(),
     ten_hien_thi: tenRutGon(ho_ten),
     lop: cleanLop,
+    truong: cleanTruong,
     vai_tro: 'student',
     diem_hien_co: 50, // quà tân thủ 50 Xu
     tong_diem_tich_luy: 0, // khởi tạo cấp 1 (Hạt mầm)
@@ -826,7 +833,7 @@ export async function capLaiPinHocSinh(studentId, customPin) {
   }
 
   const newPin =
-    customPin && /^\d{4}$/.test(String(customPin).trim())
+    customPin && String(customPin).trim().length >= 4
       ? String(customPin).trim()
       : String(Math.floor(1000 + Math.random() * 9000))
   student.pin = newPin
@@ -835,12 +842,13 @@ export async function capLaiPinHocSinh(studentId, customPin) {
 }
 
 /** Thêm học sinh thủ công từ trang Quản trị */
-export async function themHocSinhThuCong({ ho_ten, lop, pin = '1234' }) {
+export async function themHocSinhThuCong({ ho_ten, lop, truong = '', ten_dang_nhap = '', pin = '1234' }) {
   await delay(250)
   const staff = requireStaff(load())
   if (!ho_ten?.trim()) throw new ApiError('Vui lòng nhập họ và tên học sinh.')
   if (!lop?.trim()) throw new ApiError('Vui lòng nhập lớp học.')
-  if (!/^\d{4}$/.test(pin)) throw new ApiError('Mã PIN phải gồm đúng 4 chữ số.')
+  if (!truong?.trim()) throw new ApiError('Vui lòng nhập trường học.')
+  if ((pin || '').trim().length < 4) throw new ApiError('Mật khẩu cần có ít nhất 4 ký tự.')
 
   const cleanLop = lop.trim().toUpperCase().replace(/\s/g, '')
   if (staff.vai_tro === 'teacher' && cleanLop !== staff.lop) {
@@ -848,15 +856,19 @@ export async function themHocSinhThuCong({ ho_ten, lop, pin = '1234' }) {
   }
 
   const db = load()
-  const ma_dang_nhap = sinhMaHocSinh(db, cleanLop)
+  const ma_dang_nhap = (ten_dang_nhap || '').trim().toLowerCase().replace(/\s+/g, '') || sinhMaHocSinh(db, cleanLop).toLowerCase()
+  if (db.users.some((u) => (u.ma_dang_nhap || '').toLowerCase() === ma_dang_nhap)) {
+    throw new ApiError('Tên đăng nhập này đã tồn tại, vui lòng chọn tên đăng nhập khác.')
+  }
 
   const newUser = {
     id: uid(),
     ma_dang_nhap,
-    pin,
+    pin: pin.trim(),
     ho_ten: ho_ten.trim(),
     ten_hien_thi: tenRutGon(ho_ten),
     lop: cleanLop,
+    truong: truong.trim(),
     vai_tro: 'student',
     diem_hien_co: 50,
     tong_diem_tich_luy: 50,

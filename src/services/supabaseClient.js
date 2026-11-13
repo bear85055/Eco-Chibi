@@ -36,3 +36,15 @@ export const supabase = isSupabaseConfigured
 export function getSupabase() {
   return supabase
 }
+
+export function createTempAuthClient() {
+  if (!isSupabaseConfigured) return null
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: 'ecochibi_temp_signup',
+    },
+  })
+}

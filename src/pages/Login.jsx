@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
-import { dangKyHocSinh } from '../services/authService'
+import { dangKyHocSinh, sanitizeUsername } from '../services/authService'
 import Modal from '../components/Modal'
 import Confetti from '../components/Confetti'
 import { sfx } from '../utils/sfx'
-
-const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok']
 
 export default function Login() {
   const { user, login, setUser } = usePlayer()
@@ -19,30 +17,35 @@ export default function Login() {
   const [pin, setPin] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  const [shake, setShake] = useState(0)
   const [showPwd, setShowPwd] = useState(false)
 
-  // Form đăng ký nhanh
+  // Form đăng ký tài khoản học sinh (Họ tên, Lớp, Trường, Tên đăng nhập, Mật khẩu)
   const [regName, setRegName] = useState('')
   const [regLop, setRegLop] = useState('')
-  const [regPin, setRegPin] = useState('1234')
+  const [regTruong, setRegTruong] = useState('')
+  const [regUsername, setRegUsername] = useState('')
+  const [regPin, setRegPin] = useState('')
+  const [showRegPwd, setShowRegPwd] = useState(false)
   const [regSuccess, setRegSuccess] = useState(null)
   const [copied, setCopied] = useState(false)
 
   const fail = (msg) => {
     setErr(msg)
-    setPin('')
-    setShake((s) => s + 1)
     sfx.wrong()
   }
 
-  const submit = async (p) => {
-    if (!ma.trim()) return fail(tab === 'teacher' ? 'Vui lòng nhập tài khoản Admin nhé!' : 'Em nhập Mã học sinh trước nhé!')
-    if (tab === 'student' && p.length !== 4) return fail('Mã PIN gồm đúng 4 chữ số nha!')
-    if (tab === 'teacher' && !p.trim()) return fail('Vui lòng nhập mật khẩu Admin nhé!')
+  const submit = async (e) => {
+    if (e?.preventDefault) e.preventDefault()
+    if (!ma.trim()) {
+      return fail(tab === 'teacher' ? 'Vui lòng nhập tài khoản Admin nhé!' : 'Em vui lòng nhập Tên đăng nhập nhé!')
+    }
+    if (!pin.trim()) {
+      return fail(tab === 'teacher' ? 'Vui lòng nhập mật khẩu Admin nhé!' : 'Em vui lòng nhập Mật khẩu nhé!')
+    }
     setBusy(true)
+    setErr('')
     try {
-      const u = await login(ma, p)
+      const u = await login(ma, pin)
       if (u.vai_tro === 'teacher' || u.vai_tro === 'admin') {
         const dest = fromPath?.startsWith('/giao-vien') ? fromPath : '/giao-vien'
         navigate(dest, { replace: true })
@@ -50,8 +53,8 @@ export default function Login() {
         const dest = fromPath && !fromPath.startsWith('/giao-vien') && fromPath !== '/dang-nhap' ? fromPath : '/'
         navigate(dest, { replace: true })
       }
-    } catch (e) {
-      fail(e.message)
+    } catch (error) {
+      fail(error.message)
     } finally {
       setBusy(false)
     }
@@ -60,52 +63,37 @@ export default function Login() {
   const handleRegister = async (e) => {
     e.preventDefault()
     if (!regName.trim()) return fail('Vui lòng nhập họ và tên của em nhé!')
-    if (!regLop.trim()) return fail('Vui lòng nhập lớp học của em (VD: 3A, 4C...) nhé!')
-    if (regPin.length !== 4) return fail('Mã PIN gồm đúng 4 chữ số nha!')
+    if (!regLop.trim()) return fail('Vui lòng nhập lớp của em (VD: 3A, 6A1...) nhé!')
+    if (!regTruong.trim()) return fail('Vui lòng nhập tên trường của em nhé!')
+    const cleanUser = sanitizeUsername(regUsername)
+    if (!cleanUser || cleanUser.length < 3) {
+      return fail('Tên đăng nhập cần từ 3 ký tự trở lên (chữ cái không dấu hoặc số) nha!')
+    }
+    if (regPin.trim().length < 4) {
+      return fail('Mật khẩu cần có ít nhất 4 ký tự nha!')
+    }
     setBusy(true)
     setErr('')
     try {
       const u = await dangKyHocSinh({
         ho_ten: regName.trim(),
         lop: regLop.trim().toUpperCase().replace(/\s/g, ''),
-        pin: regPin,
+        truong: regTruong.trim(),
+        ten_dang_nhap: cleanUser,
+        pin: regPin.trim(),
       })
       sfx.win()
-      setRegSuccess({ ...u, pin: regPin })
-    } catch (e) {
-      fail(e.message)
+      setRegSuccess({
+        ...u,
+        truong: u.truong || regTruong.trim(),
+        pin: regPin.trim(),
+      })
+    } catch (error) {
+      fail(error.message)
     } finally {
       setBusy(false)
     }
   }
-
-  const press = (k) => {
-    if (busy) return
-    setErr('')
-    if (k === 'del') return setPin((p) => p.slice(0, -1))
-    if (k === 'ok') return submit(pin)
-    if (pin.length >= 4) return
-    sfx.tap()
-    const np = pin + k
-    setPin(np)
-    if (np.length === 4) submit(np)
-  }
-
-  const pressRef = useRef(press)
-  useEffect(() => {
-    pressRef.current = press
-  })
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.target.tagName === 'INPUT' || tab === 'register' || tab === 'teacher') return
-      if (/^\d$/.test(e.key)) pressRef.current(e.key)
-      else if (e.key === 'Backspace') pressRef.current('del')
-      else if (e.key === 'Enter') pressRef.current('ok')
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [tab])
 
   if (user && !regSuccess) {
     if (user.vai_tro === 'teacher' || user.vai_tro === 'admin') {
@@ -181,53 +169,119 @@ export default function Login() {
         {tab === 'register' ? (
           <form onSubmit={handleRegister} style={{ textAlign: 'left' }}>
             <label className="field">
-              <span className="field__label">Họ và tên của em:</span>
+              <span className="field__label">Họ và tên:</span>
               <input
                 id="reg-name"
                 className="field__input"
-                style={{ textAlign: 'left', fontSize: '1.05rem', padding: '10px 14px' }}
+                style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 14px' }}
                 placeholder="VD: Nguyễn Tuấn Khang"
                 value={regName}
-                onChange={(e) => setRegName(e.target.value)}
+                onChange={(e) => {
+                  setRegName(e.target.value)
+                  setErr('')
+                }}
                 required
               />
             </label>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '10px' }}>
               <label className="field">
-                <span className="field__label">Lớp học của em:</span>
+                <span className="field__label">Lớp:</span>
                 <input
                   id="reg-class"
                   className="field__input"
                   style={{
-                    fontSize: '1.05rem',
+                    fontSize: '1rem',
                     padding: '10px',
                     textAlign: 'center',
                     fontWeight: '700',
                     textTransform: 'uppercase',
                   }}
-                  placeholder="VD: 3A, 4C..."
+                  placeholder="VD: 3A"
                   value={regLop}
-                  onChange={(e) => setRegLop(e.target.value.toUpperCase().replace(/\s/g, ''))}
-                  maxLength={6}
+                  onChange={(e) => {
+                    setRegLop(e.target.value.toUpperCase().replace(/\s/g, ''))
+                    setErr('')
+                  }}
+                  maxLength={10}
                   required
                 />
               </label>
 
               <label className="field">
-                <span className="field__label">Tạo mã PIN 4 số:</span>
+                <span className="field__label">Trường:</span>
                 <input
-                  id="reg-pin"
-                  type="password"
-                  maxLength={4}
+                  id="reg-school"
                   className="field__input"
-                  style={{ textAlign: 'center', fontSize: '1.2rem', padding: '10px' }}
-                  value={regPin}
-                  onChange={(e) => setRegPin(e.target.value.replace(/\D/g, ''))}
+                  style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 12px' }}
+                  placeholder="VD: TH Kim Đồng"
+                  value={regTruong}
+                  onChange={(e) => {
+                    setRegTruong(e.target.value)
+                    setErr('')
+                  }}
+                  maxLength={45}
                   required
                 />
               </label>
             </div>
+
+            <label className="field">
+              <span className="field__label">Tên đăng nhập (viết liền không dấu):</span>
+              <input
+                id="reg-username"
+                className="field__input"
+                style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 14px', fontWeight: '700' }}
+                placeholder="VD: tuankhang3a"
+                value={regUsername}
+                onChange={(e) => {
+                  setRegUsername(sanitizeUsername(e.target.value))
+                  setErr('')
+                }}
+                autoComplete="username"
+                maxLength={28}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span className="field__label">Mật khẩu:</span>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="reg-pin"
+                  type={showRegPwd ? 'text' : 'password'}
+                  className="field__input"
+                  style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 44px 10px 14px' }}
+                  placeholder="Nhập mật khẩu (tối thiểu 4 ký tự)..."
+                  value={regPin}
+                  onChange={(e) => {
+                    setRegPin(e.target.value)
+                    setErr('')
+                  }}
+                  autoComplete="new-password"
+                  maxLength={24}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowRegPwd((s) => !s)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '1.1rem',
+                    color: 'var(--ink-400)',
+                  }}
+                  title={showRegPwd ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showRegPwd ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </label>
 
             <p className="login__error" role="alert">
               {err}
@@ -238,13 +292,7 @@ export default function Login() {
             </button>
           </form>
         ) : tab === 'teacher' ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              submit(pin)
-            }}
-            style={{ textAlign: 'left' }}
-          >
+          <form onSubmit={submit} style={{ textAlign: 'left' }}>
             <label className="field" htmlFor="login-teacher-id">
               <span className="field__label">Tài khoản Admin:</span>
               <input
@@ -316,54 +364,97 @@ export default function Login() {
             </button>
           </form>
         ) : (
-          <>
+          <form onSubmit={submit} style={{ textAlign: 'left' }}>
             <label className="field" htmlFor="login-id-input">
-              <span className="field__label">Mã học sinh</span>
+              <span className="field__label">Tên đăng nhập:</span>
               <input
                 id="login-id-input"
                 className="field__input"
+                style={{ textAlign: 'left', fontSize: '1.05rem', padding: '10px 14px' }}
                 value={ma}
                 onChange={(e) => {
-                  setMa(e.target.value.toUpperCase().replace(/\s/g, ''))
+                  setMa(sanitizeUsername(e.target.value))
                   setErr('')
                 }}
-                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                placeholder="VD: HS3A01"
+                placeholder="Nhập tên đăng nhập của em..."
                 autoComplete="username"
-                maxLength={12}
+                maxLength={28}
+                required
               />
             </label>
 
-            <div className="field__label">Mã PIN (4 chữ số)</div>
-            <div className="pin-dots" key={shake} data-shake={shake > 0} aria-label={`Đã nhập ${pin.length} trên 4 số`}>
-              {[0, 1, 2, 3].map((i) => (
-                <span key={i} className={`pin-dot ${i < pin.length ? 'is-filled' : ''}`} />
-              ))}
-            </div>
+            <label className="field" htmlFor="login-student-pwd">
+              <span className="field__label">Mật khẩu:</span>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="login-student-pwd"
+                  type={showPwd ? 'text' : 'password'}
+                  className="field__input"
+                  style={{ textAlign: 'left', fontSize: '1.05rem', padding: '10px 44px 10px 14px' }}
+                  value={pin}
+                  onChange={(e) => {
+                    setPin(e.target.value)
+                    setErr('')
+                  }}
+                  placeholder="Nhập mật khẩu..."
+                  autoComplete="current-password"
+                  maxLength={24}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((s) => !s)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '1.1rem',
+                    color: 'var(--ink-400)',
+                  }}
+                  title={showPwd ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showPwd ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </label>
 
             <p className="login__error" role="alert">
               {err}
             </p>
 
-            <div className="keypad">
-              {KEYS.map((k) => (
-                <button
-                  key={k}
-                  id={`key-${k}`}
-                  className={`keypad__key ${k === 'ok' ? 'keypad__key--ok' : ''} ${k === 'del' ? 'keypad__key--del' : ''}`}
-                  onClick={() => press(k)}
-                  disabled={busy}
-                  aria-label={k === 'del' ? 'Xóa' : k === 'ok' ? 'Vào chơi' : k}
-                >
-                  {k === 'del' ? '⌫' : k === 'ok' ? (busy ? '…' : '➜') : k}
-                </button>
-              ))}
+            <button
+              id="btn-login-student"
+              type="submit"
+              className="btn btn--primary btn--block"
+              style={{ marginTop: '8px', padding: '12px', fontSize: '1.05rem' }}
+              disabled={busy}
+            >
+              {busy ? 'Đang vào vườn...' : 'Đăng nhập Vào Chơi 🚀'}
+            </button>
+
+            <div style={{ textAlign: 'center', marginTop: '14px', fontSize: '0.88rem', color: 'var(--ink-600)' }}>
+              Chưa có tài khoản?{' '}
+              <button
+                type="button"
+                className="link-btn"
+                style={{ color: 'var(--green-700)', fontWeight: 800, textDecoration: 'underline' }}
+                onClick={() => {
+                  setTab('register')
+                  setErr('')
+                }}
+              >
+                Đăng ký ngay ✨
+              </button>
             </div>
-          </>
+          </form>
         )}
       </section>
 
-      {/* Modal hiển thị Mã học sinh khi đăng ký thành công */}
+      {/* Modal hiển thị thông tin tài khoản khi đăng ký thành công */}
       {regSuccess && (
         <Modal open={true} onClose={() => {}}>
           <Confetti count={50} />
@@ -399,11 +490,11 @@ export default function Login() {
               >
                 <div>
                   <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#047857', fontWeight: '800', letterSpacing: '0.5px' }}>
-                    MÃ ĐĂNG NHẬP CỦA EM
+                    TÊN ĐĂNG NHẬP CỦA EM
                   </span>
                   <div
                     id="new-student-id"
-                    style={{ fontSize: '1.9rem', fontWeight: '900', color: '#065f46', letterSpacing: '1.5px', marginTop: '2px' }}
+                    style={{ fontSize: '1.65rem', fontWeight: '900', color: '#065f46', letterSpacing: '0.5px', marginTop: '2px' }}
                   >
                     {regSuccess.ma_dang_nhap}
                   </div>
@@ -427,20 +518,26 @@ export default function Login() {
                     setTimeout(() => setCopied(false), 2500)
                   }}
                 >
-                  {copied ? '✓ Đã chép' : '📋 Chép mã'}
+                  {copied ? '✓ Đã chép' : '📋 Chép tên'}
                 </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.92rem' }}>
                 <div>
-                  <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>Mã PIN: </span>
+                  <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>Mật khẩu: </span>
                   <b style={{ color: '#111827' }}>{regSuccess.pin}</b>
                 </div>
                 <div>
                   <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>Lớp: </span>
                   <b style={{ color: '#111827' }}>{regSuccess.lop}</b>
                 </div>
-                <div style={{ gridColumn: 'span 2', marginTop: '4px' }}>
+                {regSuccess.truong && (
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>Trường: </span>
+                    <b style={{ color: '#111827' }}>{regSuccess.truong}</b>
+                  </div>
+                )}
+                <div style={{ gridColumn: 'span 2', marginTop: '2px' }}>
                   <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>Quà tặng tân thủ: </span>
                   <span style={{ color: '#059669', fontWeight: '700' }}>🎁 +50 Xu Xanh</span>
                 </div>
@@ -465,7 +562,7 @@ export default function Login() {
             >
               <span style={{ fontSize: '1.1rem' }}>📝</span>
               <span>
-                Em hãy <b>chụp lại màn hình</b> hoặc <b>ghi Mã học sinh ({regSuccess.ma_dang_nhap})</b> vào vở để đăng nhập những lần sau nhé!
+                Em hãy <b>ghi nhớ Tên đăng nhập ({regSuccess.ma_dang_nhap})</b> và <b>Mật khẩu</b> để đăng nhập những lần sau nhé!
               </span>
             </div>
 
@@ -489,12 +586,12 @@ export default function Login() {
                 style={{ fontSize: '0.86rem', color: '#6b7280', padding: '4px' }}
                 onClick={() => {
                   setMa(regSuccess.ma_dang_nhap)
+                  setPin(regSuccess.pin)
                   setTab('student')
                   setRegSuccess(null)
-                  setPin('')
                 }}
               >
-                Hoặc tự đăng nhập bằng mã này →
+                Hoặc quay lại trang đăng nhập →
               </button>
             </div>
           </div>

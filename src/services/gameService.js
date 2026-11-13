@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 import * as mock from './mock/mockBackend'
-import { layThongTinToi } from './authService'
+import { layThongTinToi, parseTenVaTruong } from './authService'
 import { HABITS, QUIZZES, dayIndex } from './mock/questBank'
 
 export const DAILY_CAP = mock.DAILY_CAP
@@ -53,14 +53,18 @@ export async function layBangXepHang() {
   const myRankItem = me ? data.find((r) => r.id === me.id) : null
 
   return {
-    top: (data || []).map((r) => ({
-      id: r.id,
-      hang: Number(r.hang),
-      ten_hien_thi: r.ten_hien_thi,
-      lop: r.lop,
-      xp: r.xp,
-      la_toi: me ? r.id === me.id : false,
-    })),
+    top: (data || []).map((r) => {
+      const parsed = parseTenVaTruong(r)
+      return {
+        id: r.id,
+        hang: Number(r.hang),
+        ten_hien_thi: parsed.ten_hien_thi,
+        truong: parsed.truong,
+        lop: r.lop,
+        xp: r.xp,
+        la_toi: me ? r.id === me.id : false,
+      }
+    }),
     toi: me
       ? {
           id: me.id,
