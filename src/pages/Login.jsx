@@ -12,7 +12,7 @@ export default function Login() {
   const location = useLocation()
   const fromPath = location.state?.from?.pathname
 
-  const [tab, setTab] = useState('student') // student | teacher | register
+  const [tab, setTab] = useState('login') // login | register
   const [ma, setMa] = useState('')
   const [pin, setPin] = useState('')
   const [err, setErr] = useState('')
@@ -37,10 +37,10 @@ export default function Login() {
   const submit = async (e) => {
     if (e?.preventDefault) e.preventDefault()
     if (!ma.trim()) {
-      return fail(tab === 'teacher' ? 'Vui lòng nhập tài khoản Admin nhé!' : 'Em vui lòng nhập Tên đăng nhập nhé!')
+      return fail('Vui lòng nhập Tên đăng nhập nhé!')
     }
     if (!pin.trim()) {
-      return fail(tab === 'teacher' ? 'Vui lòng nhập mật khẩu Admin nhé!' : 'Em vui lòng nhập Mật khẩu nhé!')
+      return fail('Vui lòng nhập Mật khẩu nhé!')
     }
     setBusy(true)
     setErr('')
@@ -63,7 +63,7 @@ export default function Login() {
   const handleRegister = async (e) => {
     e.preventDefault()
     if (!regName.trim()) return fail('Vui lòng nhập họ và tên của em nhé!')
-    if (!regLop.trim()) return fail('Vui lòng nhập lớp của em (VD: 3A, 6A1...) nhé!')
+    if (!regLop.trim()) return fail('Vui lòng nhập lớp của em nhé!')
     if (!regTruong.trim()) return fail('Vui lòng nhập tên trường của em nhé!')
     const cleanUser = sanitizeUsername(regUsername)
     if (!cleanUser || cleanUser.length < 3) {
@@ -113,12 +113,12 @@ export default function Login() {
         </h1>
         <p className="login__tagline">Cùng Chibi sống xanh mỗi ngày! 🌱</p>
 
-        {/* Tab chuyển đổi vai trò */}
+        {/* Thanh chuyển đổi: Đăng nhập | Đăng ký */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '4px',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '6px',
             background: 'hsl(140 40% 94%)',
             padding: '4px',
             borderRadius: '16px',
@@ -127,36 +127,21 @@ export default function Login() {
         >
           <button
             type="button"
-            className={`btn btn--sm ${tab === 'student' ? 'btn--primary' : 'btn--ghost'}`}
-            style={{ padding: '6px 8px', fontSize: '0.82rem', boxShadow: 'none' }}
+            id="tab-login"
+            className={`btn btn--sm ${tab === 'login' ? 'btn--primary' : 'btn--ghost'}`}
+            style={{ padding: '8px 10px', fontSize: '0.88rem', boxShadow: 'none' }}
             onClick={() => {
-              setTab('student')
-              setMa('')
-              setPin('')
+              setTab('login')
               setErr('')
             }}
           >
-            🎒 Học sinh
-          </button>
-          <button
-            type="button"
-            id="tab-teacher"
-            className={`btn btn--sm ${tab === 'teacher' ? 'btn--primary' : 'btn--ghost'}`}
-            style={{ padding: '6px 8px', fontSize: '0.82rem', boxShadow: 'none' }}
-            onClick={() => {
-              setTab('teacher')
-              setMa('ADMIN')
-              setPin('')
-              setErr('')
-            }}
-          >
-            🛡️ Admin
+            🔑 Đăng nhập
           </button>
           <button
             type="button"
             id="tab-register"
             className={`btn btn--sm ${tab === 'register' ? 'btn--primary' : 'btn--ghost'}`}
-            style={{ padding: '6px 8px', fontSize: '0.82rem', boxShadow: 'none' }}
+            style={{ padding: '8px 10px', fontSize: '0.88rem', boxShadow: 'none' }}
             onClick={() => {
               setTab('register')
               setErr('')
@@ -173,8 +158,6 @@ export default function Login() {
               <input
                 id="reg-name"
                 className="field__input"
-                style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 14px' }}
-                placeholder="VD: Nguyễn Tuấn Khang"
                 value={regName}
                 onChange={(e) => {
                   setRegName(e.target.value)
@@ -191,13 +174,10 @@ export default function Login() {
                   id="reg-class"
                   className="field__input"
                   style={{
-                    fontSize: '1rem',
-                    padding: '10px',
                     textAlign: 'center',
                     fontWeight: '700',
                     textTransform: 'uppercase',
                   }}
-                  placeholder="VD: 3A"
                   value={regLop}
                   onChange={(e) => {
                     setRegLop(e.target.value.toUpperCase().replace(/\s/g, ''))
@@ -213,8 +193,6 @@ export default function Login() {
                 <input
                   id="reg-school"
                   className="field__input"
-                  style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 12px' }}
-                  placeholder="VD: TH Kim Đồng"
                   value={regTruong}
                   onChange={(e) => {
                     setRegTruong(e.target.value)
@@ -227,12 +205,11 @@ export default function Login() {
             </div>
 
             <label className="field">
-              <span className="field__label">Tên đăng nhập (viết liền không dấu):</span>
+              <span className="field__label">Tên đăng nhập:</span>
               <input
                 id="reg-username"
                 className="field__input"
-                style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 14px', fontWeight: '700' }}
-                placeholder="VD: tuankhang3a"
+                style={{ fontWeight: '700' }}
                 value={regUsername}
                 onChange={(e) => {
                   setRegUsername(sanitizeUsername(e.target.value))
@@ -251,8 +228,7 @@ export default function Login() {
                   id="reg-pin"
                   type={showRegPwd ? 'text' : 'password'}
                   className="field__input"
-                  style={{ textAlign: 'left', fontSize: '1rem', padding: '10px 44px 10px 14px' }}
-                  placeholder="Nhập mật khẩu (tối thiểu 4 ký tự)..."
+                  style={{ paddingRight: '44px' }}
                   value={regPin}
                   onChange={(e) => {
                     setRegPin(e.target.value)
@@ -291,78 +267,6 @@ export default function Login() {
               {busy ? 'Đang tạo...' : 'Tạo tài khoản & Nhận 50 Xu 🍃'}
             </button>
           </form>
-        ) : tab === 'teacher' ? (
-          <form onSubmit={submit} style={{ textAlign: 'left' }}>
-            <label className="field" htmlFor="login-teacher-id">
-              <span className="field__label">Tài khoản Admin:</span>
-              <input
-                id="login-teacher-id"
-                className="field__input"
-                style={{ textAlign: 'left', fontSize: '1.05rem', padding: '10px 14px' }}
-                value={ma}
-                onChange={(e) => {
-                  setMa(e.target.value.toUpperCase().replace(/\s/g, ''))
-                  setErr('')
-                }}
-                placeholder="ADMIN"
-                autoComplete="username"
-                maxLength={24}
-                required
-              />
-            </label>
-
-            <label className="field" htmlFor="login-teacher-pwd">
-              <span className="field__label">Mật khẩu bảo mật:</span>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="login-teacher-pwd"
-                  type={showPwd ? 'text' : 'password'}
-                  className="field__input"
-                  style={{ textAlign: 'left', fontSize: '1.05rem', padding: '10px 44px 10px 14px' }}
-                  value={pin}
-                  onChange={(e) => {
-                    setPin(e.target.value)
-                    setErr('')
-                  }}
-                  placeholder="Nhập mật khẩu..."
-                  autoComplete="current-password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd((s) => !s)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '1.1rem',
-                    color: 'var(--ink-400)',
-                  }}
-                  title={showPwd ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                >
-                  {showPwd ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </label>
-
-            <p className="login__error" role="alert">
-              {err}
-            </p>
-
-            <button
-              id="btn-login-teacher"
-              type="submit"
-              className="btn btn--primary btn--block"
-              style={{ marginTop: '8px', padding: '12px', fontSize: '1.05rem' }}
-              disabled={busy}
-            >
-              {busy ? 'Đang xác thực...' : 'Đăng nhập Cổng Quản trị ➜'}
-            </button>
-          </form>
         ) : (
           <form onSubmit={submit} style={{ textAlign: 'left' }}>
             <label className="field" htmlFor="login-id-input">
@@ -370,13 +274,11 @@ export default function Login() {
               <input
                 id="login-id-input"
                 className="field__input"
-                style={{ textAlign: 'left', fontSize: '1.05rem', padding: '10px 14px' }}
                 value={ma}
                 onChange={(e) => {
                   setMa(sanitizeUsername(e.target.value))
                   setErr('')
                 }}
-                placeholder="Nhập tên đăng nhập của em..."
                 autoComplete="username"
                 maxLength={28}
                 required
@@ -390,13 +292,12 @@ export default function Login() {
                   id="login-student-pwd"
                   type={showPwd ? 'text' : 'password'}
                   className="field__input"
-                  style={{ textAlign: 'left', fontSize: '1.05rem', padding: '10px 44px 10px 14px' }}
+                  style={{ paddingRight: '44px' }}
                   value={pin}
                   onChange={(e) => {
                     setPin(e.target.value)
                     setErr('')
                   }}
-                  placeholder="Nhập mật khẩu..."
                   autoComplete="current-password"
                   maxLength={24}
                   required
@@ -433,7 +334,7 @@ export default function Login() {
               style={{ marginTop: '8px', padding: '12px', fontSize: '1.05rem' }}
               disabled={busy}
             >
-              {busy ? 'Đang vào vườn...' : 'Đăng nhập Vào Chơi 🚀'}
+              {busy ? 'Đang đăng nhập...' : 'Đăng nhập ➜'}
             </button>
 
             <div style={{ textAlign: 'center', marginTop: '14px', fontSize: '0.88rem', color: 'var(--ink-600)' }}>
@@ -587,7 +488,7 @@ export default function Login() {
                 onClick={() => {
                   setMa(regSuccess.ma_dang_nhap)
                   setPin(regSuccess.pin)
-                  setTab('student')
+                  setTab('login')
                   setRegSuccess(null)
                 }}
               >

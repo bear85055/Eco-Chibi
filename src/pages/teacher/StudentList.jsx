@@ -459,8 +459,6 @@ export default function StudentList() {
                 <input
                   id="add-student-name"
                   className="field__input"
-                  style={{ textAlign: 'left', padding: '10px 12px', fontSize: '1rem' }}
-                  placeholder="VD: Lê Hoàng Long"
                   value={addName}
                   onChange={(e) => setAddName(e.target.value)}
                   required
@@ -473,8 +471,7 @@ export default function StudentList() {
                   <input
                     id="add-student-class"
                     className="field__input"
-                    style={{ textAlign: 'center', fontWeight: 'bold', padding: '10px', fontSize: '1rem', textTransform: 'uppercase' }}
-                    placeholder="VD: 3A"
+                    style={{ textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase' }}
                     value={addLop}
                     disabled={user.vai_tro === 'teacher'}
                     onChange={(e) => setAddLop(e.target.value.toUpperCase().replace(/\s/g, ''))}
@@ -488,8 +485,6 @@ export default function StudentList() {
                   <input
                     id="add-student-school"
                     className="field__input"
-                    style={{ textAlign: 'left', padding: '10px 12px', fontSize: '1rem' }}
-                    placeholder="VD: TH Kim Đồng"
                     value={addTruong}
                     onChange={(e) => setAddTruong(e.target.value)}
                     maxLength={45}
@@ -504,8 +499,7 @@ export default function StudentList() {
                   <input
                     id="add-student-username"
                     className="field__input"
-                    style={{ textAlign: 'left', padding: '10px 12px', fontSize: '1rem', fontWeight: 700 }}
-                    placeholder="VD: hoanglong3a"
+                    style={{ fontWeight: 700 }}
                     value={addUsername}
                     onChange={(e) => setAddUsername(sanitizeUsername(e.target.value))}
                     maxLength={28}
@@ -520,8 +514,7 @@ export default function StudentList() {
                     type="text"
                     maxLength={24}
                     className="field__input"
-                    style={{ textAlign: 'center', padding: '10px', fontSize: '1rem' }}
-                    placeholder="VD: 1234"
+                    style={{ textAlign: 'center' }}
                     value={addPin}
                     onChange={(e) => setAddPin(e.target.value)}
                     required
