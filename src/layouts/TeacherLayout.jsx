@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
+import EcoChatWidget from '../components/EcoChatWidget'
 import './TeacherLayout.css'
 
 const NAV_LINKS = [
@@ -69,6 +70,7 @@ export default function TeacherLayout() {
       <main className="teacher-main">
         <Outlet />
       </main>
+      <EcoChatWidget />
     </div>
   )
 }

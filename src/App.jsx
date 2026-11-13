@@ -3,6 +3,7 @@ import { PlayerProvider, usePlayer } from './context/PlayerContext'
 import { ToastProvider } from './context/ToastContext'
 import HeaderBar from './components/HeaderBar'
 import BottomNav from './components/BottomNav'
+import EcoChatWidget from './components/EcoChatWidget'
 import TeacherLayout from './layouts/TeacherLayout'
 import Login from './pages/Login'
 import Home from './pages/student/Home'
@@ -81,6 +82,7 @@ function StudentLayout() {
       <main className="page">
         <Outlet />
       </main>
+      <EcoChatWidget />
       <BottomNav />
     </div>
   )
