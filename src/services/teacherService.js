@@ -456,6 +456,49 @@ export async function themHocSinhThuCong({ ho_ten, lop, truong = '', ten_dang_nh
   }
 }
 
+export async function xoaHocSinh(studentId) {
+  if (!supabase) {
+    return mock.xoaHocSinh(studentId)
+  }
+
+  await layThongTinToi()
+  const { error } = await supabase
+    .from('users')
+    .delete()
+    .eq('id', studentId)
+
+  if (error) {
+    throw new Error(error.message || 'Không thể xóa học sinh này.')
+  }
+  return { success: true }
+}
+
+export async function xoaToanBoHocSinh() {
+  if (!supabase) {
+    return mock.xoaToanBoHocSinh()
+  }
+
+  await layThongTinToi()
+
+  // Ưu tiên gọi RPC xoa_toan_bo_hoc_sinh (xóa sạch cả trong auth.users & public.users)
+  const { error: rpcErr } = await supabase.rpc('xoa_toan_bo_hoc_sinh')
+  if (!rpcErr) {
+    return { success: true }
+  }
+
+  // Dự phòng xóa trực tiếp trong bảng public nếu chưa chạy SQL tạo hàm xoa_toan_bo_hoc_sinh
+  await supabase.from('redemptions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  await supabase.from('point_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  await supabase.from('game_sessions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  const { error } = await supabase.from('users').delete().eq('vai_tro', 'student')
+  if (error) {
+    throw new Error(
+      'Để xóa tận gốc tài khoản đăng nhập cũ trên Supabase, bạn hãy chạy file supabase/reset_students.sql trong Supabase SQL Editor nhé!',
+    )
+  }
+  return { success: true }
+}
+
 export async function layNhatKyDiem({ lop = 'all' } = {}) {
   if (!supabase) {
     return mock.layNhatKyDiem({ lop })

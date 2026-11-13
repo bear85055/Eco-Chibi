@@ -904,6 +904,32 @@ export async function themHocSinhThuCong({ ho_ten, lop, truong = '', ten_dang_nh
   }
 }
 
+/** Xóa 1 học sinh */
+export async function xoaHocSinh(studentId) {
+  await delay(150)
+  const db = load()
+  requireStaff(db)
+  db.users = db.users.filter((u) => u.id !== studentId || u.vai_tro === 'admin')
+  db.redemptions = db.redemptions.filter((r) => r.user_id !== studentId)
+  db.point_logs = db.point_logs.filter((l) => l.user_id !== studentId)
+  db.game_sessions = db.game_sessions.filter((g) => g.user_id !== studentId)
+  save(db)
+  return { success: true }
+}
+
+/** Xóa toàn bộ học sinh cũ */
+export async function xoaToanBoHocSinh() {
+  await delay(200)
+  const db = load()
+  requireStaff(db)
+  db.users = db.users.filter((u) => u.vai_tro === 'admin')
+  db.redemptions = []
+  db.point_logs = []
+  db.game_sessions = []
+  save(db)
+  return { success: true }
+}
+
 /** Lấy nhật ký điểm point_logs */
 export async function layNhatKyDiem({ lop = 'all', limit = 50 } = {}) {
   await delay(180)

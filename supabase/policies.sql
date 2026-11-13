@@ -11,11 +11,11 @@ ALTER TABLE public.game_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Cấp quyền truy cập bảng và view cho role authenticated
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.users TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.users TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.rewards TO authenticated;
-GRANT SELECT ON public.redemptions TO authenticated;
-GRANT SELECT ON public.point_logs TO authenticated;
-GRANT SELECT ON public.game_sessions TO authenticated;
+GRANT SELECT, DELETE ON public.redemptions TO authenticated;
+GRANT SELECT, DELETE ON public.point_logs TO authenticated;
+GRANT SELECT, DELETE ON public.game_sessions TO authenticated;
 GRANT SELECT ON public.v_leaderboard TO authenticated;
 
 -- Helper function lấy vai trò người dùng hiện tại
@@ -76,6 +76,11 @@ CREATE POLICY "Staff update students" ON public.users
   FOR UPDATE TO authenticated
   USING ((SELECT public.current_user_role()) IN ('teacher', 'admin'))
   WITH CHECK ((SELECT public.current_user_role()) IN ('teacher', 'admin'));
+
+DROP POLICY IF EXISTS "Staff delete students" ON public.users;
+CREATE POLICY "Staff delete students" ON public.users
+  FOR DELETE TO authenticated
+  USING ((SELECT public.current_user_role()) IN ('teacher', 'admin'));
 
 DROP POLICY IF EXISTS "Insert user profile" ON public.users;
 DROP POLICY IF EXISTS "Insert own student profile" ON public.users;

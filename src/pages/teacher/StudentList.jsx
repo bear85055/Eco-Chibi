@@ -7,6 +7,8 @@ import {
   congDiemThuongHocSinh,
   layDanhSachHocSinh,
   themHocSinhThuCong,
+  xoaHocSinh,
+  xoaToanBoHocSinh,
 } from '../../services/teacherService'
 import { sanitizeUsername } from '../../services/authService'
 import { getLevel } from '../../utils/levels'
@@ -153,6 +155,40 @@ export default function StudentList() {
     }
   }
 
+  const handleDeleteOne = async (student) => {
+    if (!window.confirm(`Xóa tài khoản học sinh "${student.ho_ten}" (${student.ma_dang_nhap})?`)) return
+    setBusy(true)
+    try {
+      await xoaHocSinh(student.id)
+      toast(`Đã xóa học sinh ${student.ho_ten}.`, 'info')
+      load()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleClearAllStudents = async () => {
+    if (
+      !window.confirm(
+        'Làm sạch toàn bộ dữ liệu học sinh thử nghiệm (xóa tất cả học sinh, lịch sử điểm, đơn đổi quà; giữ nguyên Admin và Kho quà)?',
+      )
+    )
+      return
+    setBusy(true)
+    try {
+      await xoaToanBoHocSinh()
+      localStorage.removeItem('ecochibi_pin_map')
+      toast('Đã làm sạch toàn bộ danh sách học sinh!', 'success')
+      load()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleAddStudent = async (e) => {
     e.preventDefault()
     if (!addName.trim()) return toast('Vui lòng nhập họ và tên học sinh', 'error')
@@ -191,7 +227,19 @@ export default function StudentList() {
           <p>Ghi nhận việc tốt bảo vệ môi trường ngoài đời thực và quản lý tài khoản, mật khẩu học sinh.</p>
         </div>
 
-        <div className="t-header__stats" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="t-header__stats" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {user.vai_tro === 'admin' && data.items.length > 0 && (
+            <button
+              id="btn-clear-all-students"
+              type="button"
+              className="btn btn--ghost btn--sm"
+              style={{ color: 'var(--coral-500)', fontWeight: 800 }}
+              disabled={busy}
+              onClick={handleClearAllStudents}
+            >
+              🧹 Làm sạch DS
+            </button>
+          )}
           <button
             id="btn-open-add-student"
             type="button"
@@ -347,6 +395,15 @@ export default function StudentList() {
                           onClick={() => handleResetPin(st)}
                         >
                           🔑 MK: {st.pin || '1234'}
+                        </button>
+                        <button
+                          id={`btn-del-${st.ma_dang_nhap}`}
+                          className="btn btn--sm btn--ghost"
+                          style={{ color: 'var(--coral-500)', padding: '6px 8px' }}
+                          title="Xóa học sinh này"
+                          onClick={() => handleDeleteOne(st)}
+                        >
+                          🗑️
                         </button>
                       </div>
                     </td>
