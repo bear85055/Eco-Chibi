@@ -7,7 +7,7 @@ import Confetti from '../components/Confetti'
 import { sfx } from '../utils/sfx'
 
 export default function Login() {
-  const { user, login, setUser } = usePlayer()
+  const { user, login, logout, setUser } = usePlayer()
   const navigate = useNavigate()
   const location = useLocation()
   const fromPath = location.state?.from?.pathname
@@ -69,8 +69,8 @@ export default function Login() {
     if (!cleanUser || cleanUser.length < 3) {
       return fail('Tên đăng nhập cần từ 3 ký tự trở lên (chữ cái không dấu hoặc số) nha!')
     }
-    if (regPin.trim().length < 4) {
-      return fail('Mật khẩu cần có ít nhất 4 ký tự nha!')
+    if (regPin.trim().length < 4 || regPin.trim().length > 16) {
+      return fail('Mật khẩu cần từ 4 đến 16 ký tự nha!')
     }
     setBusy(true)
     setErr('')
@@ -95,7 +95,7 @@ export default function Login() {
     }
   }
 
-  if (user && !regSuccess) {
+  if (user && !regSuccess && !busy) {
     if (user.vai_tro === 'teacher' || user.vai_tro === 'admin') {
       return <Navigate to="/giao-vien" replace />
     }
@@ -235,7 +235,7 @@ export default function Login() {
                     setErr('')
                   }}
                   autoComplete="new-password"
-                  maxLength={24}
+                  maxLength={16}
                   required
                 />
                 <button
@@ -485,9 +485,12 @@ export default function Login() {
                 id="btn-switch-login-with-code"
                 className="link-btn"
                 style={{ fontSize: '0.86rem', color: '#6b7280', padding: '4px' }}
-                onClick={() => {
-                  setMa(regSuccess.ma_dang_nhap)
-                  setPin(regSuccess.pin)
+                onClick={async () => {
+                  const savedMa = regSuccess.ma_dang_nhap
+                  const savedPin = regSuccess.pin
+                  await logout()
+                  setMa(savedMa)
+                  setPin(savedPin)
                   setTab('login')
                   setRegSuccess(null)
                 }}

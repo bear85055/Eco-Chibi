@@ -78,6 +78,7 @@ export default function SaveEnergy() {
 
   const gameRef = useRef(newGameState())
   const sessionRef = useRef(null)
+  const finishingRef = useRef(false)
 
   const start = async () => {
     setStartError('')
@@ -85,6 +86,7 @@ export default function SaveEnergy() {
       const s = await batDauGame('save_energy')
       sessionRef.current = s.id
       gameRef.current = newGameState()
+      finishingRef.current = false
       setResult(null)
       setTimeLeft(GAME_SECONDS)
       setPhase('playing')
@@ -94,6 +96,8 @@ export default function SaveEnergy() {
   }
 
   const finish = async () => {
+    if (finishingRef.current) return
+    finishingRef.current = true
     setPhase('submitting')
     const st = gameRef.current
     const stats = { score: st.score, wrong: st.wrong, missed: st.missed }

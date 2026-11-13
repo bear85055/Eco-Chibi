@@ -268,31 +268,8 @@ export async function capNhatThongTinHocSinh(studentId, { ho_ten, lop, truong, m
     .select()
     .maybeSingle()
 
-  if (error || !updated) {
-    // Dự phòng cập nhật qua RPC khởi tạo
-    const { data: currentStu } = await supabase
-      .from('users')
-      .select('ma_dang_nhap, pin, diem_hien_co, tong_diem_tich_luy')
-      .eq('id', studentId)
-      .maybeSingle()
-
-    if (currentStu?.ma_dang_nhap) {
-      await supabase.rpc('tao_tai_khoan_demo', {
-        p_ma: currentStu.ma_dang_nhap,
-        p_pin: getPinCache(studentId) || currentStu.pin || '1234',
-        p_ho_ten: cleanHoTen,
-        p_lop: cleanLop,
-        p_vai_tro: 'student',
-        p_xu: currentStu.diem_hien_co || 50,
-        p_xp: currentStu.tong_diem_tich_luy || 0,
-      })
-      await supabase
-        .from('users')
-        .update({ ten_hien_thi: encodedTenHienThi })
-        .eq('id', studentId)
-    } else if (error) {
-      throw new Error(error.message || 'Không thể cập nhật thông tin học sinh.')
-    }
+  if (error && !updated) {
+    throw new Error(error.message || 'Không thể cập nhật thông tin học sinh.')
   }
 
   return {
@@ -307,7 +284,7 @@ export async function capNhatThongTinHocSinh(studentId, { ho_ten, lop, truong, m
 export async function capLaiPinHocSinh(studentId, customPin) {
   const newPin =
     customPin && String(customPin).trim().length >= 4
-      ? String(customPin).trim()
+      ? String(customPin).trim().slice(0, 16)
       : String(Math.floor(1000 + Math.random() * 9000))
 
   if (!supabase) {
@@ -322,30 +299,11 @@ export async function capLaiPinHocSinh(studentId, customPin) {
   })
 
   if (error) {
-    // Dự phòng cập nhật qua RPC khởi tạo nếu hàm cap_lai_pin chưa đồng bộ quyền
-    const { data: st } = await supabase
-      .from('users')
-      .select('ma_dang_nhap, ho_ten, lop')
-      .eq('id', studentId)
-      .single()
-
-    if (st?.ma_dang_nhap) {
-      const { error: fallbackErr } = await supabase.rpc('tao_tai_khoan_demo', {
-        p_ma: st.ma_dang_nhap,
-        p_pin: newPin,
-        p_ho_ten: st.ho_ten || 'Học sinh',
-        p_lop: st.lop || '1A',
-        p_vai_tro: 'student',
-        p_xu: 0,
-        p_xp: 0,
-      })
-      if (!fallbackErr) {
-        savePinCache(studentId, newPin)
-        return { success: true, newPin, student: st }
-      }
-    }
     throw new Error(error.message || 'Không thể cấp lại mật khẩu cho học sinh.')
   }
+
+  // Đảm bảo cột pin trên bảng public.users luôn được đồng bộ
+  await supabase.from('users').update({ pin: newPin }).eq('id', studentId)
 
   const finalPin = data?.new_pin || newPin
   savePinCache(studentId, finalPin)
@@ -362,7 +320,7 @@ export async function themHocSinhThuCong({ ho_ten, lop, truong = '', ten_dang_nh
   const cleanHoTen = (ho_ten || '').trim()
   const cleanLop = (lop || '').trim().toUpperCase().replace(/\s/g, '')
   const cleanTruong = (truong || '').trim()
-  const cleanPin = (pin || '').trim()
+  const cleanPin = (pin || '').trim().slice(0, 16)
 
   if (!cleanHoTen) throw new Error('Vui lòng nhập họ và tên học sinh.')
   if (!cleanLop) throw new Error('Vui lòng nhập lớp học.')
@@ -401,15 +359,56 @@ export async function themHocSinhThuCong({ ho_ten, lop, truong = '', ten_dang_nh
     },
   })
 
+  let newUid = authData?.user?.id
+
   if (authError) {
     const msg = authError.message?.toLowerCase() || ''
     if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('duplicate')) {
-      throw new Error('Tên đăng nhập này đã tồn tại, vui lòng chọn tên đăng nhập khác.')
-    }
-    throw new Error(authError.message || 'Không thể tạo tài khoản học sinh mới.')
-  }
+      // Kiểm tra xem học sinh này có còn trong public.users không hay đã bị xóa trước đó
+      const { data: existingInPublic } = await supabase
+        .from('users')
+        .select('id')
+        .ilike('ma_dang_nhap', cleanUsername)
+        .maybeSingle()
 
-  const newUid = authData?.user?.id
+      if (existingInPublic) {
+        throw new Error('Tên đăng nhập này đã tồn tại, vui lòng chọn tên đăng nhập khác.')
+      }
+
+      // Khôi phục tài khoản auth.users mồ côi (từng bị xóa khỏi public.users)
+      const { data: recoveredUid, error: rpcErr } = await supabase.rpc('tao_tai_khoan_demo', {
+        p_ma: cleanUsername,
+        p_pin: cleanPin,
+        p_ho_ten: cleanHoTen,
+        p_lop: cleanLop,
+        p_vai_tro: 'student',
+        p_xu: 50,
+        p_xp: 0,
+      })
+
+      if (rpcErr || !recoveredUid) {
+        throw new Error('Tên đăng nhập này đã tồn tại, vui lòng chọn tên đăng nhập khác.')
+      }
+
+      newUid = recoveredUid
+      await supabase
+        .from('users')
+        .update({
+          ma_dang_nhap: cleanUsername,
+          ho_ten: cleanHoTen,
+          ten_hien_thi: encodedTenHienThi,
+          lop: cleanLop,
+          pin: cleanPin,
+          diem_hien_co: 50,
+          tong_diem_tich_luy: 0,
+          diem_kiem_hom_nay: 0,
+        })
+        .eq('id', newUid)
+      await supabase.rpc('cap_lai_pin', { p_student_id: newUid, p_new_pin: cleanPin })
+    } else {
+      throw new Error(authError.message || 'Không thể tạo tài khoản học sinh mới.')
+    }
+  }
   let { data: profile } = await supabase
     .from('users')
     .select('*')

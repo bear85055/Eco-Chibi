@@ -340,12 +340,6 @@ export default function DailyQuiz() {
 
   useEffect(() => {
     if (phase !== 'playing') return
-    const id = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000)
-    return () => clearInterval(id)
-  }, [phase])
-
-  useEffect(() => {
-    if (phase !== 'playing') return
     const onKeyDown = (e) => {
       const st = gameRef.current
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
@@ -434,6 +428,8 @@ export default function DailyQuiz() {
       const st = gameRef.current
       st.elapsed += dt
       const progress = Math.min(1, st.elapsed / (GAME_SECONDS * 1000))
+      const nextTimeLeft = Math.ceil(Math.max(0, GAME_SECONDS - st.elapsed / 1000))
+      setTimeLeft((prev) => (prev !== nextTimeLeft ? nextTimeLeft : prev))
       const speedPctPerSec = 28 + 10 * progress
 
       // Gạch lát vỉa hè & vạch kẻ lòng đường trôi mượt ở 60fps (chu kỳ 96px khớp bội số của 48px và 64px)
@@ -449,7 +445,7 @@ export default function DailyQuiz() {
           st.lane = 1
         }
         // Khi cổng trường trôi xuống chạm đúng vị trí bước chân nhân vật -> đã bước vào sân trường!
-        if (st.gateY >= PLAYER_Y_PCT - 2 && !st.arrived) {
+        if ((st.gateY >= PLAYER_Y_PCT - 2 || progress >= 1) && !st.arrived) {
           st.arrived = true
           finish()
           return

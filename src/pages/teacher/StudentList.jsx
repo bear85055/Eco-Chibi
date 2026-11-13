@@ -486,7 +486,7 @@ export default function StudentList() {
                   <input
                     id="custom-pin-input"
                     type="text"
-                    maxLength={24}
+                    maxLength={16}
                     className="field__input"
                     value={customPinInput}
                     onChange={(e) => setCustomPinInput(e.target.value)}
@@ -648,7 +648,7 @@ export default function StudentList() {
                   <input
                     id="add-student-pin"
                     type="text"
-                    maxLength={24}
+                    maxLength={16}
                     className="field__input"
                     style={{ textAlign: 'center' }}
                     value={addPin}

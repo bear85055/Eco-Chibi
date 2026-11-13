@@ -215,7 +215,8 @@ export async function dangNhap(ma, pin) {
     .single()
 
   if (profileError || !profile) {
-    throw new Error('Không tìm thấy thông tin tài khoản trên hệ thống.')
+    await supabase.auth.signOut()
+    throw new Error('Tài khoản này không còn tồn tại trên hệ thống.')
   }
 
   return formatUser(profile)
@@ -229,7 +230,7 @@ export async function dangKyHocSinh({ ho_ten, lop, truong = '', ten_dang_nhap = 
   const cleanHoTen = (ho_ten || '').trim()
   const cleanLop = (lop || '').trim().toUpperCase().replace(/\s/g, '')
   const cleanTruong = (truong || '').trim()
-  const cleanPin = (pin || '').trim()
+  const cleanPin = (pin || '').trim().slice(0, 16)
 
   if (!cleanHoTen) throw new Error('Vui lòng nhập họ và tên của em.')
   if (!cleanLop) throw new Error('Vui lòng nhập lớp của em.')

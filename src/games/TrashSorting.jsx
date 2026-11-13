@@ -67,6 +67,7 @@ export default function TrashSorting() {
   const gameRef = useRef(newGameState())
   const sessionRef = useRef(null)
   const xpBeforeRef = useRef(user.tong_diem_tich_luy)
+  const finishingRef = useRef(false)
 
   const start = async () => {
     setStartError('')
@@ -75,6 +76,7 @@ export default function TrashSorting() {
       sessionRef.current = s.id
       xpBeforeRef.current = user.tong_diem_tich_luy
       gameRef.current = newGameState()
+      finishingRef.current = false
       setResult(null)
       setTimeLeft(GAME_SECONDS)
       setPhase('playing')
@@ -84,6 +86,8 @@ export default function TrashSorting() {
   }
 
   const finish = async () => {
+    if (finishingRef.current) return
+    finishingRef.current = true
     setPhase('submitting')
     const st = gameRef.current
     const stats = { score: st.score, wrong: st.wrong, missed: st.missed }
