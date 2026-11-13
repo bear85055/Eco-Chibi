@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Bước Chân Xanh — Real-time 3-Lane Walk to School & Trash Pickup Game
+   Bước Chân Xanh — Illustrated Street Runner & Chibi Bin Assets
    ========================================================================== */
 
 .gs-play {
@@ -13,51 +13,71 @@
   overflow: hidden;
   touch-action: none;
   user-select: none;
-  background: linear-gradient(90deg, #4ade80 0%, #86efac 14%, #475569 14%, #334155 86%, #86efac 86%, #4ade80 100%);
+  background: #4ade80;
 }
 
-/* Lề đường / Vỉa hè hai bên */
+/* ---------- Vỉa hè & Bó vỉa (Sidewalk & Curbs) ---------- */
 .gs-curb {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 14%;
+  width: 16%;
   pointer-events: none;
   z-index: 2;
+  background-color: #dcfce7;
+  background-image:
+    linear-gradient(180deg, rgba(16, 185, 129, 0.14) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px);
+  background-size: 100% 44px, 22px 44px;
 }
 
 .gs-curb--left {
   left: 0;
-  border-right: 6px solid #cbd5e1;
-  background: repeating-linear-gradient(
-    180deg,
-    #4ade80 0px,
-    #4ade80 48px,
-    #86efac 48px,
-    #86efac 96px
-  );
+  border-right: 8px solid #e2e8f0;
+  box-shadow: inset -6px 0 0 #86efac, 4px 0 12px rgba(0, 0, 0, 0.22);
 }
 
 .gs-curb--right {
   right: 0;
-  border-left: 6px solid #cbd5e1;
-  background: repeating-linear-gradient(
-    180deg,
-    #4ade80 0px,
-    #4ade80 48px,
-    #86efac 48px,
-    #86efac 96px
-  );
+  border-left: 8px solid #e2e8f0;
+  box-shadow: inset 6px 0 0 #86efac, -4px 0 12px rgba(0, 0, 0, 0.22);
 }
 
-/* Mặt đường 3 làn ở giữa */
+/* Bó vỉa kẻ vạch trắng-vàng dọc mép đường */
+.gs-curb::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: repeating-linear-gradient(
+    180deg,
+    #facc15 0px,
+    #facc15 24px,
+    #ffffff 24px,
+    #ffffff 48px
+  );
+  background-position-y: inherit;
+}
+
+.gs-curb--left::after {
+  right: -8px;
+}
+
+.gs-curb--right::after {
+  left: -8px;
+}
+
+/* ---------- Mặt đường nhựa 3 làn ---------- */
 .gs-road {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 14%;
-  right: 14%;
-  background: linear-gradient(180deg, #475569 0%, #334155 100%);
+  left: 16%;
+  right: 16%;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(148, 163, 184, 0.12), transparent 70%),
+    linear-gradient(90deg, #334155 0%, #3b495e 18%, #475569 50%, #3b495e 82%, #334155 100%);
   overflow: hidden;
 }
 
@@ -65,28 +85,45 @@
   position: absolute;
   top: -120px;
   bottom: 0;
-  width: 5px;
+  width: 6px;
   background: repeating-linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.55) 0px,
-    rgba(255, 255, 255, 0.55) 36px,
-    transparent 36px,
+    rgba(255, 255, 255, 0.7) 0px,
+    rgba(255, 255, 255, 0.7) 34px,
+    transparent 34px,
     transparent 76px
   );
+  border-radius: 4px;
   pointer-events: none;
 }
 
 .gs-lane-divider--1 {
-  left: 33.33%;
+  left: 33.333%;
   transform: translateX(-50%);
 }
 
 .gs-lane-divider--2 {
-  left: 66.66%;
+  left: 66.666%;
   transform: translateX(-50%);
 }
 
-/* Vùng chạm chuyển làn trực tiếp */
+/* Vạch kẻ sang đường Zebra ở gần cổng trường */
+.gs-crosswalk {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  height: 44px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.88) 0px,
+    rgba(255, 255, 255, 0.88) 18px,
+    transparent 18px,
+    transparent 34px
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
 .gs-lane-touch {
   position: absolute;
   top: 0;
@@ -96,46 +133,28 @@
   cursor: pointer;
 }
 
-/* Cảnh vật cây xanh hai bên vỉa hè */
+/* ---------- Cảnh vật vỉa hè SVG ---------- */
 .gs-tree {
   position: absolute;
   z-index: 3;
-  font-size: 2.1rem;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.18));
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.22));
 }
 
-/* Cổng trường xuất hiện khi về đích */
+/* ---------- Cổng Trường Học Xanh SVG ---------- */
 .gs-school-gate {
   position: absolute;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 5;
-  background: linear-gradient(180deg, #fef08a, #fde047);
-  border: 4px solid #ca8a04;
-  border-radius: 20px;
-  padding: 8px 22px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
-  white-space: nowrap;
+  z-index: 7;
+  width: 92%;
+  max-width: 320px;
   pointer-events: none;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.35));
 }
 
-.gs-school-gate__icon {
-  font-size: 2.4rem;
-}
-
-.gs-school-gate__text {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 1.05rem;
-  color: #854d0e;
-}
-
-/* Vật phẩm trên đường: Rác, Thùng rác, Vũng nước */
+/* ---------- Sticker Món Rác Vector 3D ---------- */
 .gs-obj {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -143,82 +162,198 @@
   pointer-events: none;
 }
 
-.gs-obj--trash {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.96);
-  border: 3px solid #34d399;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+.gs-trash-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
+  animation: gsTrashFloat 1.1s ease-in-out infinite alternate;
+}
+
+.gs-trash-shadow {
+  width: 48px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.42);
+  margin-top: -6px;
+  filter: blur(1px);
+}
+
+.gs-trash-sticker {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: radial-gradient(circle at 30% 25%, #ffffff 0%, #f0fdf4 100%);
+  border: 3px solid #ffffff;
+  box-shadow:
+    0 6px 0 #10b981,
+    0 10px 18px rgba(0, 0, 0, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.gs-trash-label {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #064e3b;
+  color: #ecfdf5;
+  font-size: 0.64rem;
+  font-weight: 800;
+  white-space: nowrap;
+  border: 1.5px solid #34d399;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- Thùng Rác Chibi 3D Bên Đường ---------- */
+.gs-chibi-bin-wrap {
+  pointer-events: auto;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gs-chibi-bin {
+  --bin-c: hsl(145 63% 42%);
+  --bin-d: hsl(145 65% 30%);
+  position: relative;
+  width: 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.35));
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gs-chibi-bin__lid {
+  position: relative;
+  z-index: 2;
+  width: 64px;
+  height: 13px;
+  border-radius: 8px 8px 4px 4px;
+  background: var(--bin-d);
+  border: 2px solid #a7f3d0;
+  border-bottom: none;
+  transform-origin: 12% 100%;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gs-chibi-bin__lid::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 20px;
+  height: 6px;
+  margin-left: -10px;
+  border-radius: 5px 5px 0 0;
+  background: #a7f3d0;
+}
+
+.gs-chibi-bin__body {
+  width: 56px;
+  height: 58px;
+  margin-top: -1px;
+  border-radius: 5px 5px 15px 15px;
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  border: 2.5px solid #a7f3d0;
+  box-shadow: inset 5px 0 0 rgba(255, 255, 255, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.gs-chibi-bin__face {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 10px;
+  width: 44px;
+}
+
+.gs-chibi-bin__eye {
+  width: 8px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset -1.5px -2px 0 #0f172a;
+}
+
+.gs-chibi-bin__mouth {
+  flex-basis: 100%;
+  display: flex;
   justify-content: center;
 }
 
-.gs-obj__icon {
-  font-size: 1.9rem;
+.gs-chibi-bin__mouth::before {
+  content: '';
+  width: 14px;
+  height: 7px;
+  margin-top: 3px;
+  border: 2.5px solid #fff;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  transition: all 0.15s;
+}
+
+.gs-chibi-bin__badge {
+  margin-top: 4px;
+  font-size: 0.95rem;
   line-height: 1;
 }
 
-.gs-obj__tag {
-  font-size: 0.6rem;
-  font-weight: 800;
-  color: #065f46;
-  margin-top: 1px;
+.gs-chibi-bin.is-ready {
+  animation: gsBinReady 0.5s ease-in-out infinite alternate;
 }
 
-.gs-obj--bin {
-  width: 74px;
-  height: 78px;
-  border-radius: 20px;
-  background: linear-gradient(180deg, #10b981, #059669);
-  border: 3.5px solid #a7f3d0;
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.45);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  pointer-events: auto;
-  cursor: pointer;
+.gs-chibi-bin.is-ready .gs-chibi-bin__lid {
+  transform: rotate(-26deg) translateY(-4px);
 }
 
-.gs-obj--bin.is-glowing {
-  animation: gsBinPulse 0.55s ease-in-out infinite alternate;
-  box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.4), 0 8px 20px rgba(16, 185, 129, 0.5);
+.gs-chibi-bin.is-ready .gs-chibi-bin__mouth::before {
+  width: 16px;
+  height: 11px;
+  border: 0;
+  border-radius: 50%;
+  background: #064e3b;
 }
 
-.gs-obj--bin .gs-obj__icon {
-  font-size: 2.1rem;
-}
-
-.gs-obj--bin .gs-obj__tag {
-  color: #ecfdf5;
+.gs-chibi-bin__tag {
+  margin-top: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #fef08a;
+  color: #854d0e;
+  font-family: var(--font-display);
   font-size: 0.66rem;
   font-weight: 900;
-  background: rgba(6, 78, 59, 0.65);
-  padding: 1px 6px;
-  border-radius: 999px;
-  margin-top: 2px;
+  border: 2px solid #eab308;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
-.gs-obj--puddle {
-  width: 68px;
-  height: 44px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #38bdf8 0%, #0284c7 85%);
-  border: 2.5px solid #bae6fd;
+/* ---------- Vũng Nước & Cọc Tiêu Cảnh Báo ---------- */
+.gs-puddle-wrap {
+  position: relative;
+  width: 82px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.28));
 }
 
-/* Nhân vật Chibi đi học */
+/* ---------- Nhân vật học sinh Chibi ---------- */
 .gs-player {
   position: absolute;
-  bottom: 112px;
+  bottom: 96px;
   transform: translateX(-50%);
   transition: left 0.14s cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 8;
@@ -229,50 +364,66 @@
 }
 
 .gs-player__bag-pill {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.96);
   color: #065f46;
   border: 2.5px solid #10b981;
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 4px 11px;
   font-size: 0.78rem;
   font-weight: 900;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .gs-player__bag-pill.is-full {
-  background: #fef08a;
-  color: #854d0e;
+  background: linear-gradient(180deg, #fef08a, #fde047);
+  color: #713f12;
   border-color: #eab308;
-  animation: gsBinPulse 0.5s ease-in-out infinite alternate;
+  animation: gsBinReady 0.45s ease-in-out infinite alternate;
+}
+
+.gs-player__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .gs-player__avatar {
   position: relative;
-  animation: gsStepBob 0.28s ease-in-out infinite alternate;
+  z-index: 2;
+  animation: gsStepBob 0.26s ease-in-out infinite alternate;
   filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.35));
+}
+
+.gs-player__ground-shadow {
+  width: 58px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.45);
+  margin-top: -8px;
+  animation: gsShadowPulse 0.26s ease-in-out infinite alternate;
 }
 
 .gs-player__backpack {
   position: absolute;
-  bottom: -2px;
-  right: -8px;
-  font-size: 1.55rem;
-  background: #fff;
+  bottom: 0px;
+  right: -10px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  background: #ffffff;
+  border: 2.5px solid #10b981;
   display: grid;
   place-items: center;
-  border: 2px solid #10b981;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.22);
 }
 
-/* Thanh nút điều khiển Trái / Giữa / Phải ở đáy màn hình */
+/* ---------- Thanh nút điều khiển đáy màn hình ---------- */
 .gs-bottom-bar {
   position: absolute;
   left: 14px;
@@ -280,20 +431,20 @@
   bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 12;
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
+  grid-template-columns: 1fr 1.25fr 1fr;
   gap: 8px;
 }
 
 .gs-steer-btn {
-  height: 52px;
+  height: 50px;
   border-radius: 16px;
-  border: 2.5px solid rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.92);
+  border: 2.5px solid #bbf7d0;
+  background: rgba(255, 255, 255, 0.95);
   color: #065f46;
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 0.95rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 0 #86efac, 0 6px 14px rgba(0, 0, 0, 0.22);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -303,25 +454,26 @@
 }
 
 .gs-steer-btn:active {
-  transform: scale(0.95);
+  transform: translateY(2px);
 }
 
 .gs-steer-btn.is-active {
-  background: #10b981;
+  background: linear-gradient(180deg, #34d399, #10b981);
   color: #ffffff;
-  border-color: #a7f3d0;
+  border-color: #ecfdf5;
+  box-shadow: 0 4px 0 #047857, 0 6px 14px rgba(0, 0, 0, 0.25);
 }
 
 .gs-dump-btn {
-  height: 52px;
+  height: 50px;
   border-radius: 16px;
-  border: 2.5px solid #fde047;
+  border: 2.5px solid #fef08a;
   background: linear-gradient(180deg, #facc15, #eab308);
   color: #422006;
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: 0.92rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-size: 0.9rem;
+  box-shadow: 0 4px 0 #ca8a04, 0 6px 14px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -330,9 +482,10 @@
 }
 
 .gs-dump-btn:disabled {
-  background: rgba(255, 255, 255, 0.78);
-  color: #475569;
-  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.82);
+  color: #64748b;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 0 #94a3b8;
 }
 
 @keyframes gsStepBob {
@@ -340,15 +493,35 @@
     transform: translateY(0px) rotate(-3deg);
   }
   to {
-    transform: translateY(-6px) rotate(3deg);
+    transform: translateY(-7px) rotate(3deg);
   }
 }
 
-@keyframes gsBinPulse {
+@keyframes gsShadowPulse {
   from {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
+    opacity: 0.5;
   }
   to {
-    transform: translate(-50%, -50%) scale(1.08);
+    transform: scale(0.84);
+    opacity: 0.32;
+  }
+}
+
+@keyframes gsTrashFloat {
+  from {
+    transform: translateY(0px);
+  }
+  to {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes gsBinReady {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07);
   }
 }
