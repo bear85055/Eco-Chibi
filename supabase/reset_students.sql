@@ -130,3 +130,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 
 REVOKE EXECUTE ON FUNCTION public.xoa_toan_bo_hoc_sinh() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.xoa_toan_bo_hoc_sinh() TO authenticated;
+
